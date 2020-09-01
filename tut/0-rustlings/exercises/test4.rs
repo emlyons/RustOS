@@ -5,9 +5,12 @@
 
 // Write a macro that passes the test! No hints this time, you can do it!
 
-// I AM NOT DONE
-
 fn main() {
+
+   macro_rules! my_macro {
+   	($word:expr) => {format!("Hello {}!", $word)};
+   }
+
     if my_macro!("world!") != "Hello world!" {
         panic!("Oh no! Wrong output!");
     }
