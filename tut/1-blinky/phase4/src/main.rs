@@ -21,7 +21,29 @@ fn spin_sleep_ms(ms: usize) {
 }
 
 unsafe fn kmain() -> ! {
+
+    const PIN: u32 = 16;
+    const SHIFT: u32 = (PIN % 10) * 3;
+
+    // GPIO_16 is OUTPUT
+    GPIO_FSEL1.write_volatile (GPIO_FSEL1.read_volatile() & (0b111 << SHIFT));
+    GPIO_FSEL1.write_volatile (GPIO_FSEL1.read_volatile() | (0b001 << SHIFT));
+    
+       
     // FIXME: STEP 1: Set GPIO Pin 16 as output.
     // FIXME: STEP 2: Continuously set and clear GPIO 16.
-    loop {}
+    loop {
+    
+    	 // GPIO_16 is HIGH
+	 GPIO_SET0.write_volatile (GPIO_SET0.read_volatile() & (0b1 << PIN));
+	 GPIO_SET0.write_volatile (GPIO_SET0.read_volatile() | (0b1 << PIN));
+
+	 spin_sleep_ms (200);
+
+	 // GPIO_16 is LOW
+	 GPIO_CLR0.write_volatile (GPIO_CLR0.read_volatile() & (0b1 << PIN));
+	 GPIO_CLR0.write_volatile (GPIO_CLR0.read_volatile() | (0b1 << PIN));
+
+	 spin_sleep_ms (200);
+    }
 }
