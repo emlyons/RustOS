@@ -1,7 +1,5 @@
 // FIXME: Make me compile. Diff budget: 12 line additions and 2 characters.
 
-// I AM NOT DONE
-
 struct ErrorA;
 struct ErrorB;
 
@@ -10,7 +8,17 @@ enum Error {
     B(ErrorB),
 }
 
-// What traits does `Error` need to implement?
+impl From<ErrorA> for Error {
+     fn from(e: ErrorA) -> Error {
+      	Error::A(e)
+     }
+}
+
+impl From<ErrorB> for Error {
+     fn from(e: ErrorB) -> Error {
+      	Error::B(e)
+     }
+}
 
 fn do_a() -> Result<u16, ErrorA> {
     Err(ErrorA)
@@ -21,7 +29,7 @@ fn do_b() -> Result<u32, ErrorB> {
 }
 
 fn do_both() -> Result<(u16, u32), Error> {
-    Ok((do_a(), do_b()))
+    Ok((do_a()?, do_b()?))
 }
 
 fn main() {}
