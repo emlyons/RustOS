@@ -3,7 +3,7 @@
 // Do not change this definition.
 enum MyEnum {
     A(String),
-    B(String),
+    B(String)
 }
 
 fn matcher(val: &MyEnum) -> &str {
@@ -13,4 +13,4 @@ fn matcher(val: &MyEnum) -> &str {
     }
 }
 
-fn main() {}
+fn main() { }
