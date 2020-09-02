@@ -3,3 +3,5 @@
 fn make_1(v: &mut u32) {
     *v = 1;
 }
+
+pub fn main() {}
