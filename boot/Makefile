@@ -2,6 +2,7 @@ ROOT := $(shell git rev-parse --show-toplevel)
 
 KERN := boot
 TARGET := target/aarch64-unknown-none/release/${KERN}
+TARGET_DEBUG := target/aarch64-unknown-none/debug/${KERN}
 OBJCPY := cargo objcopy -- --strip-all -O binary
 
 .PHONY: all build qemu objdump nm check clean install test
@@ -17,10 +18,19 @@ build:
 	@echo "+ Building build/$(KERN).bin [objcopy]"
 	@$(OBJCPY) $(TARGET) build/$(KERN).bin
 
+debug:
+	@echo "+ Building build/$(KERN).elf [xbuild/$@]"
+	@cargo xbuild
+	@mkdir -p build
+	@cp -f $(TARGET_DEBUG) build/$(KERN).elf
+
+	@echo "+ Building build/$(KERN).bin [objcopy]"
+	@$(OBJCPY) $(TARGET_DEBUG) build/$(KERN).bin
+
 check:
 	@cargo xcheck
 
-qemu: build
+qemu: debug
 	./qemu.sh build/$(KERN).elf
 
 objdump: build

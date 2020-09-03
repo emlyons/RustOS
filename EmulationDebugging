@@ -1,0 +1,30 @@
+# Makefile
+Add a debug target
+    TARGET_DEBUG := target/aarch64-unknown-none/debug/${KERN}
+
+Add debug build alternative
+    debug:
+	@echo "+ Building build/$(KERN).elf [xbuild/$@]"
+	@cargo xbuild
+	@mkdir -p build
+	@cp -f $(TARGET_DEBUG) build/$(KERN).elf
+
+	@echo "+ Building build/$(KERN).bin [objcopy]"
+	@$(OBJCPY) $(TARGET_DEBUG) build/$(KERN).bin
+
+# qemu
+qemu-system-aarch64 is provided
+arguments:
+-nographic (run without gui)
+-s (wait for debugger to attach)
+-M raspi3 (target raspberry pi 3 platform)
+-kernel (TARGET).elf (kernel image to execute)
+
+# gdb
+In order to run gdb on aarch64 platform libraries run gdb with 'gdb-multiarch'.
+
+gdb-multiarch -tui (TARGET).elf
+
+-tui (displays executing file/code)
+
+

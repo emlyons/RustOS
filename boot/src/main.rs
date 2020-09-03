@@ -30,5 +30,7 @@ unsafe fn jump_to(addr: *mut u8) -> ! {
 }
 
 fn kmain() -> ! {
+   loop {
     // FIXME: Implement the bootloader.
+   }
 }
