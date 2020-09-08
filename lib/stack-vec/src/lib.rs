@@ -123,7 +123,36 @@ impl<'a, T: Clone + 'a> StackVec<'a, T> {
 	    Some(pop_val)
 	}
     }
+
 }
 
 // FIXME: Implement `Deref`, `DerefMut`, and `IntoIterator` for `StackVec`.
+impl<'a, T: 'a> Deref for StackVec<'a, T> {
+    type Target = [T];
+    fn deref(&self) -> &Self::Target {
+	&self.storage[0 .. self.len]
+    }
+}
+
+impl<'a, T: 'a> DerefMut for StackVec<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+	&mut self.storage[0 .. self.len]
+    }
+}
+
+impl<'a, T: 'a> IntoIterator for StackVec<'a, T> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+	self.storage[0 .. self.len].into_iter()
+    }
+}
+
 // FIXME: Implement IntoIterator` for `&StackVec`.
+impl<'a, T: 'a> IntoIterator for &'a StackVec<'a, T> {
+    type Item = &'a T;
+    type IntoIter = ::core::slice::Iter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+	self.storage[0 .. self.len].into_iter()
+    }
+}
