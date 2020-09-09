@@ -123,7 +123,6 @@ impl<'a, T: Clone + 'a> StackVec<'a, T> {
 	    Some(pop_val)
 	}
     }
-
 }
 
 // FIXME: Implement `Deref`, `DerefMut`, and `IntoIterator` for `StackVec`.
