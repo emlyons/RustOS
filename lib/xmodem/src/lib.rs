@@ -182,7 +182,16 @@ impl<T: io::Read + io::Write> Xmodem<T> {
     /// byte was not `byte`, if the read byte was `CAN` and `byte` is not `CAN`,
     /// or if writing the `CAN` byte failed on byte mismatch.
     fn expect_byte_or_cancel(&mut self, byte: u8, expected: &'static str) -> io::Result<u8> {
-        unimplemented!()
+        let next_byte = self.read_byte(false)?;
+	match next_byte {
+	    byte => Ok(next_byte),
+	    CAN => {
+		self.write_byte(CAN)?;
+		ioerr!(ConnectionAborted, "unexpected CAN")},
+	    _ => {
+		self.write_byte(CAN)?;
+		ioerr!(InvalidData, "not expected byte")},
+	}
     }
 
     /// Reads a single byte from the inner I/O stream and compares it to `byte`.
@@ -197,7 +206,12 @@ impl<T: io::Read + io::Write> Xmodem<T> {
     /// of `ConnectionAborted` is returned. Otherwise, the error kind is
     /// `InvalidData`.
     fn expect_byte(&mut self, byte: u8, expected: &'static str) -> io::Result<u8> {
-        unimplemented!()
+        let next_byte = self.read_byte(false)?;
+	match next_byte {
+	    byte => Ok(next_byte),
+	    CAN => ioerr!(ConnectionAborted, "unexpected CAN"),
+	    _ => ioerr!(InvalidData, "not expected byte"),
+	}
     }
 
     /// Reads (downloads) a single packet from the inner stream using the XMODEM
