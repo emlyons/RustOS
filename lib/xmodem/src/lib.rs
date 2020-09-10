@@ -264,54 +264,63 @@ impl<T: io::Read + io::Write> Xmodem<T> {
     /// An error of kind `UnexpectedEof` is returned if `buf.len() < 128`.
     pub fn read_packet(&mut self, buf: &mut [u8]) -> io::Result<usize> {
 
+	if buf.len() != 128 {
+	    return ioerr!(UnexpectedEof, "received EOT");
+	}
+	
+	if !self.started {
+	    self.write_byte(NAK)?;
+	    self.started = true;
+	}
+	
 	// FIRST BYTE
 	let first_byte = self.read_byte(true)?;// read byte stream
 	match first_byte {
 	    
 	    // Start of Packet Transmission
 	    SOH => {
+		(self.progress)(Progress::Started);
 		
 		// PACKET NUMBER
-		// expect_byte_or_cancel(self.packet number)
-		// proceed if match
-		// IF CAN, send CAN and return ConnectionAborted
-		// IF mismatch, send CAN and return InvalidData
+		self.expect_byte_or_cancel(self.packet, "want Packet Number")?;
 
 		// 1'S COMPLEMENT
-		// get 1s complement of packet number
-		// expect_byte_or_cancel(1st complement of packet number)
-   		// proceed if match
-		// IF CAN, send CAN and return ConnectionAborted
-		// IF mismatch, send CAN and return InvalidData
+		let ones_comp = 0xFF - self.packet;
+		self.expect_byte_or_cancel(ones_comp, "want Ones Complement")?;
 
 		// PAYLOAD
-		// read all into buf
-		// if len == 1 and byte is CAN -> return ConnectionAborted
-		// if buf.len() != 128 -> return UnexpectedEof is returned (MAYBE CAN?)
+		self.inner.read_exact(buf)?;
+		let mut checksum: u8 = 0;
+		for n in 0..255 {
+		    checksum = (checksum + buf[n]) & 0xFF;
+		}
 
 		// CHECKSUM
-		// get checksum by adding up all bytes in packet && 0xFF
-		// expect_byte (checksum)
-		// if OK send ACK -> return Ok(128)
-		// if Err(ConnectionAborted) => ConnectionAborted
-		// if Err(InvalidData) => send NACK and return Interrupted
+		if self.read_byte(false)? == checksum {
+		    self.write_byte(ACK)?;
+		    Ok(128)
+		}
+		else {
+		    self.write_byte(NAK)?;
+		    ioerr!(Interrupted, "checksum failed")
+		}
 
-		ioerr!(InvalidData, "unexpected first byte")
 	    },
 
 	    // End of tranmission
 	    EOT => {
+		self.started = false;
 		self.end_rx()?;
-		ioerr!(UnexpectedEof, "end of file")
+		ioerr!(UnexpectedEof, "received EOT")
 	    },
 
-	    // Recieved CAN
+	    // Received Unexpected Data
 	    _ => {
 		self.cancel()?;
-		ioerr!(InvalidData, "unexpected first byte")},
+		ioerr!(InvalidData, "want SOH or EOT")
+	    },
 	}
-	
-        //unimplemented!()
+
     }
 
     /// Sends (uploads) a single packet to the inner stream using the XMODEM
