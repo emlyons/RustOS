@@ -123,7 +123,9 @@ fn get_checksum(buf: &[u8]) -> u8 {
     return buf.iter().fold(0, |a, b| a.wrapping_add(*b));
 }
 
+
 impl<T: io::Read + io::Write> Xmodem<T> {
+  
     /// Returns a new `Xmodem` instance with the internal reader/writer set to
     /// `inner`. The returned instance can be used for both receiving
     /// (downloading) and sending (uploading).
@@ -173,7 +175,7 @@ impl<T: io::Read + io::Write> Xmodem<T> {
     /// If the bytes match, the byte is returned as an `Ok`. If they differ and
     /// the read byte is not `CAN`, an error of `InvalidData` with the message
     /// `expected` is returned. If they differ and the read byte is `CAN`, an
-    /// error of `ConnectionAborted` is returned. In either case, if they bytes
+    /// error of `ConnectionAborted` is returned. In either case, if the bytes
     /// differ, a `CAN` byte is written out to the inner stream.
     ///
     /// # Errors
@@ -186,11 +188,10 @@ impl<T: io::Read + io::Write> Xmodem<T> {
 	match next_byte {
 	    byte => Ok(next_byte),
 	    CAN => {
-		self.write_byte(CAN)?;
 		ioerr!(ConnectionAborted, "unexpected CAN")},
 	    _ => {
-		self.write_byte(CAN)?;
-		ioerr!(InvalidData, "not expected byte")},
+		self.cancel()?;
+		ioerr!(InvalidData, expected)},
 	}
     }
 
@@ -210,8 +211,32 @@ impl<T: io::Read + io::Write> Xmodem<T> {
 	match next_byte {
 	    byte => Ok(next_byte),
 	    CAN => ioerr!(ConnectionAborted, "unexpected CAN"),
-	    _ => ioerr!(InvalidData, "not expected byte"),
+	    _ => ioerr!(InvalidData, expected),
 	}
+    }
+
+    /// Ends xmodem transmission from reciever. To be called after receiving EOT.
+    fn end_rx(&mut self) -> io::Result<()> {
+	self.write_byte(NAK)?;
+	self.expect_byte_or_cancel(EOT, "want EOT")?;
+	self.write_byte(ACK)?;
+	Ok(())
+    }
+
+    /// Ends xmodem transmission at the request of a transmitter
+    fn end_tx(&mut self) -> io::Result<()> {
+	self.write_byte(EOT)?;
+	self.expect_byte_or_cancel(NAK, "want NACK")?;
+	self.write_byte(EOT)?;
+	self.expect_byte_or_cancel(ACK, "want ACK")?;
+	Ok(())
+    }
+
+    fn cancel(&mut self) -> io::Result<()> {
+	for n in 1..8 {
+	    self.write_byte(CAN)?;
+	}
+	Ok(())
     }
 
     /// Reads (downloads) a single packet from the inner stream using the XMODEM
@@ -238,7 +263,55 @@ impl<T: io::Read + io::Write> Xmodem<T> {
     ///
     /// An error of kind `UnexpectedEof` is returned if `buf.len() < 128`.
     pub fn read_packet(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        unimplemented!()
+
+	// FIRST BYTE
+	let first_byte = self.read_byte(true)?;// read byte stream
+	match first_byte {
+	    
+	    // Start of Packet Transmission
+	    SOH => {
+		
+		// PACKET NUMBER
+		// expect_byte_or_cancel(self.packet number)
+		// proceed if match
+		// IF CAN, send CAN and return ConnectionAborted
+		// IF mismatch, send CAN and return InvalidData
+
+		// 1'S COMPLEMENT
+		// get 1s complement of packet number
+		// expect_byte_or_cancel(1st complement of packet number)
+   		// proceed if match
+		// IF CAN, send CAN and return ConnectionAborted
+		// IF mismatch, send CAN and return InvalidData
+
+		// PAYLOAD
+		// read all into buf
+		// if len == 1 and byte is CAN -> return ConnectionAborted
+		// if buf.len() != 128 -> return UnexpectedEof is returned (MAYBE CAN?)
+
+		// CHECKSUM
+		// get checksum by adding up all bytes in packet && 0xFF
+		// expect_byte (checksum)
+		// if OK send ACK -> return Ok(128)
+		// if Err(ConnectionAborted) => ConnectionAborted
+		// if Err(InvalidData) => send NACK and return Interrupted
+
+		ioerr!(InvalidData, "unexpected first byte")
+	    },
+
+	    // End of tranmission
+	    EOT => {
+		self.end_rx()?;
+		ioerr!(UnexpectedEof, "end of file")
+	    },
+
+	    // Recieved CAN
+	    _ => {
+		self.cancel()?;
+		ioerr!(InvalidData, "unexpected first byte")},
+	}
+	
+        //unimplemented!()
     }
 
     /// Sends (uploads) a single packet to the inner stream using the XMODEM
@@ -285,4 +358,5 @@ impl<T: io::Read + io::Write> Xmodem<T> {
     pub fn flush(&mut self) -> io::Result<()> {
         self.inner.flush()
     }
+
 }
