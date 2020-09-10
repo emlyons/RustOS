@@ -186,12 +186,17 @@ impl<T: io::Read + io::Write> Xmodem<T> {
     fn expect_byte_or_cancel(&mut self, byte: u8, expected: &'static str) -> io::Result<u8> {
         let next_byte = self.read_byte(false)?;
 	match next_byte {
-	    byte => Ok(next_byte),
-	    CAN => {
-		ioerr!(ConnectionAborted, "unexpected CAN")},
+	    n if (n == byte) => Ok(next_byte),
+	    
+	    c if (c == CAN) => {
+		self.write_byte(CAN)?;
+		ioerr!(ConnectionAborted, "have CAN")
+	    },
+
 	    _ => {
-		self.cancel()?;
-		ioerr!(InvalidData, expected)},
+		self.write_byte(CAN)?;
+		ioerr!(InvalidData, expected)
+	    },
 	}
     }
 
@@ -209,34 +214,12 @@ impl<T: io::Read + io::Write> Xmodem<T> {
     fn expect_byte(&mut self, byte: u8, expected: &'static str) -> io::Result<u8> {
         let next_byte = self.read_byte(false)?;
 	match next_byte {
-	    byte => Ok(next_byte),
-	    CAN => ioerr!(ConnectionAborted, "unexpected CAN"),
+	    n if (n == byte) => Ok(next_byte),
+	    
+	    c if (c == CAN) => ioerr!(ConnectionAborted, "unexpected CAN"),
+	    
 	    _ => ioerr!(InvalidData, expected),
 	}
-    }
-
-    /// Ends xmodem transmission from reciever. To be called after receiving EOT.
-    fn end_rx(&mut self) -> io::Result<()> {
-	self.write_byte(NAK)?;
-	self.expect_byte_or_cancel(EOT, "want EOT")?;
-	self.write_byte(ACK)?;
-	Ok(())
-    }
-
-    /// Ends xmodem transmission at the request of a transmitter
-    fn end_tx(&mut self) -> io::Result<()> {
-	self.write_byte(EOT)?;
-	self.expect_byte_or_cancel(NAK, "want NACK")?;
-	self.write_byte(EOT)?;
-	self.expect_byte_or_cancel(ACK, "want ACK")?;
-	Ok(())
-    }
-
-    fn cancel(&mut self) -> io::Result<()> {
-	for n in 1..8 {
-	    self.write_byte(CAN)?;
-	}
-	Ok(())
     }
 
     /// Reads (downloads) a single packet from the inner stream using the XMODEM
@@ -267,13 +250,14 @@ impl<T: io::Read + io::Write> Xmodem<T> {
 	if buf.len() != 128 {
 	    return ioerr!(UnexpectedEof, "received EOT");
 	}
-	
+
+	// init transmission once
 	if !self.started {
 	    self.write_byte(NAK)?;
 	    self.started = true;
 	}
 	
-	// FIRST BYTE
+	// start of transmission
 	let first_byte = self.read_byte(true)?;// read byte stream
 	match first_byte {
 	    
@@ -281,22 +265,19 @@ impl<T: io::Read + io::Write> Xmodem<T> {
 	    SOH => {
 		(self.progress)(Progress::Started);
 		
-		// PACKET NUMBER
+		// packet number
 		self.expect_byte_or_cancel(self.packet, "want Packet Number")?;
 
-		// 1'S COMPLEMENT
-		let ones_comp = 0xFF - self.packet;
-		self.expect_byte_or_cancel(ones_comp, "want Ones Complement")?;
+		// 1's complement of packet number
+		self.expect_byte_or_cancel(0xFF - self.packet, "want Ones Complement")?;
 
-		// PAYLOAD
+		// payload
 		self.inner.read_exact(buf)?;
-		let mut checksum: u8 = 0;
-		for n in 0..255 {
-		    checksum = (checksum + buf[n]) & 0xFF;
-		}
 
-		// CHECKSUM
-		if self.read_byte(false)? == checksum {
+		// checksum
+		if self.read_byte(false)? == get_checksum(buf) {
+		    (self.progress)(Progress::Packet(self.packet));
+		    self.packet = (self.packet + 1) % 0xFF;
 		    self.write_byte(ACK)?;
 		    Ok(128)
 		}
@@ -307,16 +288,18 @@ impl<T: io::Read + io::Write> Xmodem<T> {
 
 	    },
 
-	    // End of tranmission
+	    // End of transmission
 	    EOT => {
 		self.started = false;
-		self.end_rx()?;
-		ioerr!(UnexpectedEof, "received EOT")
+		self.write_byte(NAK)?;
+		self.expect_byte_or_cancel(EOT, "want EOT")?;
+		self.write_byte(ACK)?;
+		Ok(0)
 	    },
 
 	    // Received Unexpected Data
 	    _ => {
-		self.cancel()?;
+		self.write_byte(CAN)?;
 		ioerr!(InvalidData, "want SOH or EOT")
 	    },
 	}
@@ -354,7 +337,59 @@ impl<T: io::Read + io::Write> Xmodem<T> {
     ///
     /// An error of kind `Interrupted` is returned if a packet checksum fails.
     pub fn write_packet(&mut self, buf: &[u8]) -> io::Result<usize> {
-        unimplemented!()
+
+	// receiver inits transmission
+	if self.started == false {
+	     (self.progress)(Progress::Waiting);
+	     self.expect_byte_or_cancel(NAK, "want NAK")?;
+	     self.started = true;
+	 }
+
+	// end of file
+	if buf.len() == 0 {
+	    self.started = false;
+	    self.write_byte(EOT)?;
+	    self.expect_byte_or_cancel(NAK, "want NACK")?;
+	    self.write_byte(EOT)?;
+	    self.expect_byte_or_cancel(ACK, "want ACK")?;
+	    return Ok(0);
+	}
+	
+	// buffer error
+	else if (buf.len() != 128) {
+	    return ioerr!(UnexpectedEof, "received EOT");
+	}
+
+	(self.progress)(Progress::Started);
+	
+	// start of transmission
+	self.write_byte(SOH)?;
+
+	// packet number
+	self.write_byte(self.packet)?;
+
+	// 1's complement of packet number
+	self.write_byte(0xFF - self.packet)?;
+	
+	// payload
+	self.inner.write_all(buf)?;
+	
+	// checksum
+	self.write_byte(get_checksum(buf))?;
+
+	match self.read_byte(true)? {
+	    ack if (ack == ACK) => {
+		(self.progress)(Progress::Packet(self.packet));
+		self.packet = (self.packet + 1) % 0xFF;
+		Ok(128)
+	    },
+	    
+	    nack if (nack == NAK) => {
+		ioerr!(Interrupted, "checksum failed at receiver")
+	    },
+
+	    _ => ioerr!(InvalidData, "want ACK or NACK"),   
+	}
     }
 
     /// Flush this output stream, ensuring that all intermediately buffered
