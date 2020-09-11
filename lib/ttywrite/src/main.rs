@@ -3,7 +3,7 @@ mod parsers;
 use serial;
 use structopt;
 use structopt_derive::StructOpt;
-use xmodem::Xmodem;
+use xmodem::{Progress, Xmodem};
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -46,12 +46,44 @@ struct Opt {
     raw: bool,
 }
 
+fn progress_fn(progress: Progress) {
+    println!("Progress: {:?}", progress);
+}
+
 fn main() {
     use std::fs::File;
     use std::io::{self, BufReader};
 
     let opt = Opt::from_args();
-    let mut port = serial::open(&opt.tty_path).expect("path points to invalid TTY");
+    let mut serial = serial::open(&opt.tty_path).expect("path points to invalid TTY");
+    let mut settings = serial.read_settings().expect("get TTY device settings");
 
-    // FIXME: Implement the `ttywrite` utility.
+    // configure TTY device
+    serial.set_timeout(Duration::from_secs(opt.timeout)).expect("set TTY timeout");
+    settings.set_baud_rate(opt.baud_rate).expect("set TTY baud rate");
+    settings.set_char_size(opt.char_width);
+    settings.set_flow_control(opt.flow_control);
+    settings.set_stop_bits(opt.stop_bits);    
+    serial.write_settings(&settings).expect("set TTY device settings");
+
+    match opt.input {
+	Some(f) => {
+	    let file = File::open(f).expect("open input file");
+	    let mut reader = BufReader::new(file);
+	    match opt.raw {
+		true => {io::copy(&mut reader, &mut serial).expect("writing input file as bit stream");},
+		false => {Xmodem::transmit_with_progress(reader, serial, progress_fn).expect("writing input file as XMODEM");},
+	    }
+	},
+	
+	None => {
+	    let stdin = io::stdin();
+	    let mut reader = BufReader::new(stdin);
+	    match opt.raw {
+		true => {io::copy(&mut reader, &mut serial).expect("writing input file as bit stream");},
+		false => {Xmodem::transmit_with_progress(reader, serial, progress_fn).expect("writing input file as XMODEM");},
+	    }
+	},
+    }
+
 }
