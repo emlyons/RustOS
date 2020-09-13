@@ -1,3 +1,4 @@
+# COMPILE KERNEL IMAGE FOR Raspberry Pi 3
 # Makefile
 Add a debug target
     TARGET_DEBUG := target/aarch64-unknown-none/debug/${KERN}
@@ -12,19 +13,32 @@ Add debug build alternative
 	@echo "+ Building build/$(KERN).bin [objcopy]"
 	@$(OBJCPY) $(TARGET_DEBUG) build/$(KERN).bin
 
+
+# RUN QEMU WITH COMPILED KERNEL IMAGE
 # qemu
 qemu-system-aarch64 is provided
 arguments:
 -nographic (run without gui)
--s (wait for debugger to attach)
+-s (wait for debugger to attach (default port 1234))
 -M raspi3 (target raspberry pi 3 platform)
 -kernel (TARGET).elf (kernel image to execute)
 
+
+# DEBUGGING KERNEL RUNNING ON QEMU WITH GDB
 # gdb
 In order to run gdb on aarch64 platform libraries run gdb with 'gdb-multiarch'.
 
 gdb-multiarch -tui (TARGET).elf
 
 -tui (displays executing file/code)
+
+OR
+
+cgdb will run with multiarch automatically if installed.
+
+In GDB:
+   target remote localhost:1234
+
+   set breakpoints and run.
 
 
