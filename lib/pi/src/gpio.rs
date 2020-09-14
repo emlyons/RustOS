@@ -103,7 +103,11 @@ impl Gpio<Uninitialized> {
     /// Enables the alternative function `function` for `self`. Consumes self
     /// and returns a `Gpio` structure in the `Alt` state.
     pub fn into_alt(self, function: Function) -> Gpio<Alt> {
-        unimplemented!()
+	let fsel_num = (self.pin / 10) as usize;
+	let offset = ((self.pin % 10) * 3) as usize;
+	self.registers.FSEL[fsel_num].and_mask(!((0b111 as u32) << offset));
+	self.registers.FSEL[fsel_num].or_mask((function as u32) << offset);
+	self.transition()
     }
 
     /// Sets this pin to be an _output_ pin. Consumes self and returns a `Gpio`
@@ -122,12 +126,16 @@ impl Gpio<Uninitialized> {
 impl Gpio<Output> {
     /// Sets (turns on) the pin.
     pub fn set(&mut self) {
-        unimplemented!()
+	let set_num = (self.pin / 32) as usize;
+	let offset = (self.pin % 32) as usize;
+	self.registers.SET[set_num].write(0b1 << offset);
     }
 
     /// Clears (turns off) the pin.
     pub fn clear(&mut self) {
-        unimplemented!()
+	let set_num = (self.pin / 32) as usize;
+	let offset = (self.pin % 32) as usize;
+	self.registers.CLR[set_num].write(0b1 << offset);
     }
 }
 
