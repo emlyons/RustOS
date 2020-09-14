@@ -6,23 +6,26 @@ Assignments from the [CS140 course](https://cs140e.sergio.bz/).
 ### Directory Structure
 
 ```
-+-- blinky  
-|   +-- phase3  
-|   +-- phase4  
-+-- shelly  
-|   +-- ferris-wheel  
-|   +-- questions  
-|   +-- stack-vec  
-|   +-- ttywrite  
-|   +-- volatile  
-|   +-- xmodem  
-+-- osy  
-    +-- bootloader  
-    +-- files  
-    +-- kernel  
-    +-- pi  
-    +-- std  
-    +-- volatile  
+.
+├── bin : common binaries/utilities
+├── doc : reference documents
+├── ext : external files (e.g., resources for testing)
+├── tut : tutorial/practices
+│    ├── 0-rustlings
+│    ├── 1-blinky
+│    ├── 2-shell
+│    └── 3-fs : questions for lab3 *
+├── boot : bootloader
+├── kern : the main os kernel *
+└── lib  : required libraries
+     ├── fat32 *
+     ├── pi *
+     ├── shim
+     ├── stack-vec
+     ├── ttywrite
+     ├── volatile
+     └── xmodem
+
 ```
 
 ### Rust Versioning
