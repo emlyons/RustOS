@@ -33,7 +33,7 @@ impl Timer {
     /// `CLO` and `CHI` together can represent the number of elapsed microseconds.
     pub fn read(&self) -> Duration {
         let time = (self.registers.CHI.read() as u64) << 32 | self.registers.CLO.read() as u64;
-	Duration::new(time, 0)
+	Duration::from_micros(time)
     }
 }
 
@@ -44,10 +44,10 @@ pub fn current_time() -> Duration {
 
 /// Spins until `t` duration have passed.
 pub fn spin_sleep(t: Duration) {
-    let start_time = Timer::new().read().as_secs();
+    let start_time = Timer::new().read().as_micros();
     loop {
-	let elapsed_time = Timer::new().read().as_secs() - start_time;
-	if elapsed_time > t.as_secs() {
+	let elapsed_time = Timer::new().read().as_micros() - start_time;
+	if elapsed_time > t.as_micros() {
 	    break;
 	}
     }

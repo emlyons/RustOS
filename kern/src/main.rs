@@ -18,62 +18,89 @@ use core::time::Duration;
 use console::kprintln;
 use pi::timer::spin_sleep;
 use pi::gpio;
+use pi::uart;
+
+
+fn binary_led(val: u8) {
+    
+}
 
 // FIXME: You need to add dependencies here to
 // test your drivers (Phase 2). Add them as needed.
 
 unsafe fn kmain() -> ! {
 
-    let sleep_time = Duration::from_secs(100000);
+    let sleep_time = Duration::from_millis(50);
+ 
+    fn binary_led(val: u8) {
 
-    // pin 5
-    let mut GPIO_5 = gpio::Gpio::new(5).into_output();
-    // pin 6
-    let mut GPIO_6 = gpio::Gpio::new(6).into_output();
-    // pin 13
-    let mut GPIO_13 = gpio::Gpio::new(13).into_output();
-    // pin 16
-    let mut GPIO_16 = gpio::Gpio::new(16).into_output();
-    // pin 19
-    let mut GPIO_19 = gpio::Gpio::new(19).into_output();
-    // pin 26
-    let mut GPIO_26 = gpio::Gpio::new(26).into_output();
+	let mut gpio_5 = gpio::Gpio::new(5).into_output();
+	let mut gpio_6 = gpio::Gpio::new(6).into_output();
+	let mut gpio_13 = gpio::Gpio::new(13).into_output();
+	let mut gpio_16 = gpio::Gpio::new(16).into_output();
+	let mut gpio_19 = gpio::Gpio::new(19).into_output();
+	let mut gpio_26 = gpio::Gpio::new(26).into_output();
+	
+	if (val & 0b1) == 0b1 {
+	    gpio_5.set();   
+	}
+	else {
+	    gpio_5.clear();
+	}
+
+	if (val & 0b10) == 0b10 {
+	    gpio_6.set();   
+	}
+	else {
+	    gpio_6.clear();
+	}
+
+	if (val & 0b100) == 0b100 {
+	    gpio_13.set();   
+	}
+	else {
+	    gpio_13.clear();
+	}
+
+	if (val & 0b1000) == 0b1000 {
+	    gpio_16.set();   
+	}
+	else {
+	    gpio_16.clear();
+	}
+
+	if (val & 0b10000) == 0b10000 {
+	    gpio_19.set();   
+	}
+	else {
+	    gpio_19.clear();
+	}
+
+	if (val & 0b100000) == 0b100000 {
+	    gpio_26.set();   
+	}
+	else {
+	    gpio_26.clear();
+	}	    
+    }
 
        
     // FIXME: STEP 1: Set GPIO Pin 16 as output.
     // FIXME: STEP 2: Continuously set and clear GPIO 16.
+    let mut led_val = 0;
+
+    let mut uart = uart::MiniUart::new();
+    
     loop {
 
-	GPIO_5.set();
+	// echo
+	let new_byte = uart.read_byte();
+	uart.write_byte(new_byte);
 
+	// binary counter
+	binary_led(led_val);
 	spin_sleep (sleep_time);
-
-	GPIO_6.set();
-	GPIO_5.clear();
-
-	spin_sleep (sleep_time);
-
-	GPIO_13.set();
-	GPIO_6.clear();
-
-	spin_sleep (sleep_time);
-
-	GPIO_16.set();
-	GPIO_13.clear();
-
-	spin_sleep (sleep_time);
-
-	GPIO_19.set();
-	GPIO_16.clear();
-
-	spin_sleep (sleep_time);
-
-	GPIO_26.set();
-	GPIO_19.clear();
-
-	spin_sleep (sleep_time);
-
-	GPIO_26.clear();
+	led_val = (led_val + 1) % 64
 	
     }
 }
