@@ -3,6 +3,7 @@ use stack_vec::StackVec;
 use crate::console::{kprint, kprintln, CONSOLE};
 
 use shim::io::Write;
+use core::str;
 
 /// Error type for `Command` parse failures.
 #[derive(Debug)]
@@ -39,8 +40,23 @@ impl<'a> Command<'a> {
 
     /// Returns this command's path. This is equivalent to the first argument.
     fn path(&self) -> &str {
-        unimplemented!()
+	assert!(!self.args.is_empty());
+	self.args[0]
     }
+
+    fn execute(&self) {
+	match self.path() {
+	    "echo" => {
+		kprintln!("");
+		kprint!("call echo stub");
+	    },
+	    _ => {
+		kprintln!("");
+		kprint!("unknown command");
+	    },
+	}
+    }
+
 }
 
 const NEWLINE: u8 = 10;
@@ -51,8 +67,6 @@ const BELL: u8 = 7;
 
 /*
 
-
-
     [] implement the echo built-in: echo $a $b $c should print $a $b $c
 
     [X] accept both \r and \n as “enter”, marking the end of a line
@@ -61,7 +75,7 @@ const BELL: u8 = 7;
 
     [X] ring the bell (ASCII 7) if an unrecognized non-visible character is sent to it
 
-    [] print unknown command: $command for an unknown command $command
+    [X] print unknown command: $command for an unknown command $command
 
     [X] disallow backspacing through the prefix
 
@@ -69,14 +83,15 @@ const BELL: u8 = 7;
 
     [X] accept commands at most 512 bytes in length
 
-    [] accept at most 64 arguments per command
+    [X] accept at most 64 arguments per command
 
-    [] start a new line, without error, with the prefix if the user enters an empty command
+    [X] start a new line, without error, with the prefix if the user enters an empty command
 
-    [] print error: too many arguments if the user passes in too many arguments
+    [X] print error: too many arguments if the user passes in too many arguments
+
+ */
 
 
-*/
 /// Starts a shell using `prefix` as the prefix for each line. This function
 /// returns if the `exit` command is called.
 pub fn shell(prefix: &str) -> ! {
@@ -95,7 +110,23 @@ pub fn shell(prefix: &str) -> ! {
 	match new_byte {
 	    
 	    byte if (byte == NEWLINE || byte == RETURN) => {
-		// parse command -> path and args -> execute
+		let mut cmd_backing: [&str; 64] = [""; 64];
+		let command = Command::parse(str::from_utf8(buf.as_slice()).unwrap(),&mut cmd_backing);
+		
+		match command {
+		    Ok(cmd) => {
+			cmd.execute();
+		    },
+		    Err(Error::TooManyArgs) => {
+			kprintln!("");
+			kprint!("too many arguments, max 64", );
+		    },
+		    Err(Error::Empty) => {
+			// do nothing
+		    },
+		}
+		
+		// -> path and args -> execute
 		buf = StackVec::new(&mut buff_backing);
 		kprintln!("");
 		kprint!("{}", prefix);
