@@ -15,7 +15,7 @@ pub mod mutex;
 pub mod shell;
 
 use core::time::Duration;
-use console::kprintln;
+use console::{kprint, kprintln};
 use pi::timer::spin_sleep;
 use pi::gpio;
 use pi::uart;
@@ -95,7 +95,7 @@ unsafe fn kmain() -> ! {
 
 	// echo
 	let new_byte = uart.read_byte();
-	uart.write_byte(new_byte);
+	kprint!("{}", new_byte);
 
 	// binary counter
 	binary_led(led_val);
