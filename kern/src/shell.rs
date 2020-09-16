@@ -5,6 +5,12 @@ use crate::console::{kprint, kprintln, CONSOLE};
 use shim::io::Write;
 use core::str;
 
+const NEWLINE: u8 = 10;
+const RETURN: u8 = 13;
+const BACKSPACE: u8 = 08;
+const DELETE: u8 = 127;
+const BELL: u8 = 7;
+
 /// Error type for `Command` parse failures.
 #[derive(Debug)]
 enum Error {
@@ -44,12 +50,10 @@ impl<'a> Command<'a> {
 	self.args[0]
     }
 
+    /// fullfills command request if present/valid in Command struct
     fn execute(&self) {
 	match self.path() {
-	    "echo" => {
-		kprintln!("");
-		kprint!("call echo stub");
-	    },
+	    "echo" => self.echo(),
 	    _ => {
 		kprintln!("");
 		kprint!("unknown command");
@@ -57,13 +61,14 @@ impl<'a> Command<'a> {
 	}
     }
 
+    fn echo (&self) {
+	assert_eq!(self.args[0], "echo");
+	kprintln!("");
+	self.args.as_slice().iter().skip(1).for_each(|arg| kprint!("{}", arg));
+    }
+
 }
 
-const NEWLINE: u8 = 10;
-const RETURN: u8 = 13;
-const BACKSPACE: u8 = 08;
-const DELETE: u8 = 127;
-const BELL: u8 = 7;
 
 /*
 
