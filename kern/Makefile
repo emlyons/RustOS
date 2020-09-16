@@ -32,7 +32,7 @@ check:
 	@cargo xcheck
 
 qemu: debug
-	./qemu.sh build/$(KERN).bin
+	./qemu.sh build/$(KERN).elf
 
 transmit: build
 	@echo "+ Transmitting build/$(KERN).bin to $(TTY_PATH)"

@@ -22,6 +22,7 @@ const AUX_ENABLES: *mut Volatile<u8> = (IO_BASE + 0x215004) as *mut Volatile<u8>
 enum LsrStatus {
     DataReady = 1,
     TxAvailable = 1 << 5,
+    TxEmpty = 1 << 6,
 }
 
 #[repr(C)]
@@ -69,23 +70,25 @@ impl MiniUart {
 	// GPIO 14 15 set to TX/RX
         Gpio::new(14).into_alt(Function::Alt5);
         Gpio::new(15).into_alt(Function::Alt5);
+	
 	let registers = unsafe {
             // Enable the mini UART as an auxiliary device.
             (*AUX_ENABLES).or_mask(1);
             &mut *(MU_REG_BASE as *mut Registers)
         };
-        
-        // FIXME: Implement remaining mini UART initialization.
-        
+
         registers.AUX_MU_LCR_REG.or_mask(0b11); // 8-bit data size
         // baudrate = system_clock_freq / (8 * (baud_reg + 1))
         // system_clock_freq is 250MHz (Page 10)
         // 250MHz / 8 / 115200 - 1 = 270
         // Using 230400 for speed
         registers.AUX_MU_BAUD.write(270); // 16-bit baudrate register
-        registers.AUX_MU_CNTL_REG.or_mask(0b11); // enable TX & RX
 
-        MiniUart {
+	timer::spin_sleep(Duration::from_millis(200)); // UART_RX takes time to synchronize and results in error bytes being read
+	
+        registers.AUX_MU_CNTL_REG.or_mask(0b11); // enable TX & RX
+	
+	MiniUart {
             registers: registers,
             timeout: None,
         }
@@ -101,6 +104,12 @@ impl MiniUart {
     pub fn write_byte(&mut self, byte: u8) {
         while !self.registers.AUX_MU_LSR_REG.has_mask(LsrStatus::TxAvailable as u8) { };
         self.registers.AUX_MU_IO_REG.write(byte);
+    }
+
+    /// Returns `true` if there is at least one byte ready to be sent. If this
+    /// return immediately. This method does not block.
+    pub fn sent_byte(&self) -> bool {
+        !self.registers.AUX_MU_LSR_REG.has_mask(LsrStatus::TxEmpty as u8)
     }
 
     /// Returns `true` if there is at least one byte ready to be read. If this
@@ -205,7 +214,7 @@ mod uart_io {
         }
 
         fn flush(&mut self) -> io::Result<()> {
-            unimplemented!()
+	    Ok(())
         }
     }
 }

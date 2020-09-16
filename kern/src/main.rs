@@ -15,7 +15,7 @@ pub mod mutex;
 pub mod shell;
 
 use core::time::Duration;
-use console::{kprint, kprintln};
+use console::{kprint, kprintln, CONSOLE};
 use pi::timer::spin_sleep;
 use pi::gpio;
 use pi::uart;
@@ -29,7 +29,7 @@ fn binary_led(val: u8) {
 // test your drivers (Phase 2). Add them as needed.
 
 unsafe fn kmain() -> ! {
-
+/*
     let sleep_time = Duration::from_millis(50);
  
     fn binary_led(val: u8) {
@@ -83,24 +83,9 @@ unsafe fn kmain() -> ! {
 	    gpio_26.clear();
 	}	    
     }
+*/
+    spin_sleep (Duration::from_secs(2));  
+    shell::shell("> ");
 
-       
-    // FIXME: STEP 1: Set GPIO Pin 16 as output.
-    // FIXME: STEP 2: Continuously set and clear GPIO 16.
-    let mut led_val = 0;
 
-    let mut uart = uart::MiniUart::new();
-    
-    loop {
-
-	// echo
-	let new_byte = uart.read_byte();
-	kprint!("{}", new_byte);
-
-	// binary counter
-	binary_led(led_val);
-	spin_sleep (sleep_time);
-	led_val = (led_val + 1) % 64
-	
-    }
 }

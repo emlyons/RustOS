@@ -18,13 +18,15 @@ impl Console {
     /// Initializes the console if it's not already initialized.
     #[inline]
     fn initialize(&mut self) {
-	self.inner.get_or_insert(MiniUart::new());
+	self.inner = Some(MiniUart::new());
     }
 
     /// Returns a mutable borrow to the inner `MiniUart`, initializing it as
     /// needed.
     fn inner(&mut self) -> &mut MiniUart {
-        self.initialize();
+	if self.inner.is_none() {
+	    self.initialize();
+	}
 	self.inner.as_mut().unwrap()
     }
 
