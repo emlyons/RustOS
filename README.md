@@ -98,7 +98,9 @@ Write `stack-vec`, `volatile`, `ttywrite`, and `xmodem` libraries.
 - [ ] Making Space
 - [ ] Implementing the Bootloader
 
-### Assignment 2: File System
+## FAT32 Filesystem
+Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignments/2-fs/).
+
 
 ### Phase 0: Getting Started
 - [ ] Getting the Skeleton Code
