@@ -90,8 +90,8 @@ Write `stack-vec`, `volatile`, `ttywrite`, and `xmodem` libraries.
 - [x] Subphase A: Getting Started
 - [x] Subphase B: System Timer
 - [x] Subphase C: GPIO
-- [ ] Subphase D: UART
-- [ ] Subphase E: The Shell
+- [X] Subphase D: UART
+- [X] Subphase E: The Shell
      
 ### Phase 4: Boot 'em Up
 - [ ] Loading Binaries
