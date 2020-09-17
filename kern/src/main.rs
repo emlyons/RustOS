@@ -15,15 +15,8 @@ pub mod mutex;
 pub mod shell;
 
 use core::time::Duration;
-use console::{kprint, kprintln, CONSOLE};
 use pi::timer::spin_sleep;
-use pi::gpio;
-use pi::uart;
 
-
-fn binary_led(val: u8) {
-    
-}
 
 // FIXME: You need to add dependencies here to
 // test your drivers (Phase 2). Add them as needed.

@@ -5,6 +5,8 @@ use crate::console::{kprint, kprintln, CONSOLE};
 use shim::io::Write;
 use core::str;
 
+use pi::gpio;
+
 const NEWLINE: u8 = 10;
 const RETURN: u8 = 13;
 const BACKSPACE: u8 = 08;
@@ -54,6 +56,7 @@ impl<'a> Command<'a> {
     fn execute(&self) {
 	match self.path() {
 	    "echo" => self.echo(),
+	    "binled" => self.binary_led(),
 	    _ => {
 		kprintln!("");
 		kprint!("unknown command");
@@ -65,6 +68,31 @@ impl<'a> Command<'a> {
 	assert_eq!(self.args[0], "echo");
 	kprintln!("");
 	self.args.as_slice().iter().skip(1).for_each(|arg| kprint!("{}", arg));
+    }
+
+    fn binary_led(&self) {
+	assert_eq!(self.args[0], "binled");
+
+	// parse number from string, if unsuccessful turn off leds
+	let mut val: u8 = 0;
+	let arg = self.args[1].parse::<u8>();
+	if arg.is_ok() {
+	    val = arg.unwrap();
+	}
+
+	let mut _gpio = [gpio::Gpio::new(5).into_output(),
+		     gpio::Gpio::new(6).into_output(),
+		     gpio::Gpio::new(13).into_output(),
+		     gpio::Gpio::new(16).into_output(),
+		     gpio::Gpio::new(19).into_output(),
+		     gpio::Gpio::new(26).into_output()];
+
+	_gpio.iter_mut().enumerate().for_each(|(i, pin)| {
+	    if (val & (0b1 << i)) == (0b1 << i) {
+		pin.set()
+	    } else {
+		pin.clear()}
+	})	    
     }
 
 }
@@ -103,7 +131,6 @@ pub fn shell(prefix: &str) -> ! {
 
     let mut buff_backing = [0u8; 512];
     let mut buf = StackVec::new(&mut buff_backing);
-    let mut index: usize = 0;
 
     kprint!("{}", prefix);
     
@@ -139,7 +166,7 @@ pub fn shell(prefix: &str) -> ! {
 
 	    byte if (byte == BACKSPACE || byte == DELETE) => {
 		match buf.pop() {
-		    Some(some) => {console.write(&[BACKSPACE, b' ', BACKSPACE]);},
+		    Some(_some) => {console.write(&[BACKSPACE, b' ', BACKSPACE]).expect("backspace/del shell character");},
 		    None => {console.write_byte(BELL);},
 		}
 	    },
@@ -150,8 +177,8 @@ pub fn shell(prefix: &str) -> ! {
 		
 	    _ => {
 		match buf.push(new_byte) {
-		    Ok(ok) => {kprint!("{}", new_byte as char);},
-		    Err(err) => {console.write_byte(BELL);},
+		    Ok(_ok) => {kprint!("{}", new_byte as char);},
+		    Err(_err) => {console.write_byte(BELL);},
 		}
 	    }
 	    
