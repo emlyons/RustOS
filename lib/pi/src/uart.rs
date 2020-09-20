@@ -66,10 +66,6 @@ impl MiniUart {
     /// By default, reads will never time out. To set a read timeout, use
     /// `set_read_timeout()`.
     pub fn new() -> MiniUart {
-
-	// GPIO 14 15 set to TX/RX
-        Gpio::new(14).into_alt(Function::Alt5);
-        Gpio::new(15).into_alt(Function::Alt5);
 	
 	let registers = unsafe {
             // Enable the mini UART as an auxiliary device.
@@ -77,7 +73,12 @@ impl MiniUart {
             &mut *(MU_REG_BASE as *mut Registers)
         };
 
+	// GPIO 14 15 set to TX/RX
+        Gpio::new(14).into_alt(Function::Alt5);
+        Gpio::new(15).into_alt(Function::Alt5);
+
         registers.AUX_MU_LCR_REG.or_mask(0b11); // 8-bit data size
+	
         // baudrate = system_clock_freq / (8 * (baud_reg + 1))
         // system_clock_freq is 250MHz (Page 10)
         // 250MHz / 8 / 115200 - 1 = 270
@@ -85,9 +86,11 @@ impl MiniUart {
         registers.AUX_MU_BAUD.write(270); // 16-bit baudrate register
 
 	timer::spin_sleep(Duration::from_millis(200)); // UART_RX takes time to synchronize and results in error bytes being read
+
+	registers.AUX_MU_IIR_REG.or_mask(0b11 << 1); // Clear TX & RX FIFOs
 	
         registers.AUX_MU_CNTL_REG.or_mask(0b11); // enable TX & RX
-	
+
 	MiniUart {
             registers: registers,
             timeout: None,

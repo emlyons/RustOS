@@ -143,6 +143,8 @@ impl Gpio<Input> {
     /// Reads the pin's value. Returns `true` if the level is high and `false`
     /// if the level is low.
     pub fn level(&mut self) -> bool {
-        unimplemented!()
+        let set_num = (self.pin / 32) as usize;
+	let offset = (self.pin % 32) as usize;
+	self.registers.LEV[set_num].has_mask(0b1 << offset)
     }
 }
