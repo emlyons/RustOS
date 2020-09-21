@@ -5,12 +5,12 @@ use stack_vec::StackVec;
 
 use pi::atags::Atags;
 
-use fat32::traits::FileSystem;
-use fat32::traits::{Dir, Entry};
+// DEBUG use fat32::traits::FileSystem;
+// DEBUG use fat32::traits::{Dir, Entry};
 
 use crate::console::{kprint, kprintln, CONSOLE};
 use crate::ALLOCATOR;
-use crate::FILESYSTEM;
+// DEBUG use crate::FILESYSTEM;
 
 use shim::io::Write;
 use core::str;
@@ -66,6 +66,7 @@ impl<'a> Command<'a> {
     fn execute(&self) {
 	match self.path() {
 	    "echo" => self.echo(),
+	    "panic" => self.panic(),
 	    "binled" => self.binary_led(),
 	    _ => {
 		kprintln!("");
@@ -103,6 +104,11 @@ impl<'a> Command<'a> {
 	    } else {
 		pin.clear()}
 	})	    
+    }
+
+    // TODO: THIS IS FOR DEBUGGING AND SHOULD NOT REMAIN
+    fn panic(&self) {
+	unreachable!();
     }
 
 }
@@ -193,13 +199,7 @@ pub fn shell(prefix: &str) -> ! {
 	    }
 	    
 
-	}
-	// read input...
-	// if backspace char remove last buffer entry...
-	// append to buffer
-	// if return parse?
-	
-	
+	}	
     }
 }
 

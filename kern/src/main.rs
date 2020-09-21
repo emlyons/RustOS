@@ -8,33 +8,40 @@
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
 
+
+
+
+
+
 #[cfg(not(test))]
 mod init;
 
 extern crate alloc;
 
+
 pub mod allocator;
 pub mod console;
-pub mod fs;
+// DEBUG pub mod fs;
 pub mod mutex;
 pub mod shell;
 
+use console::{kprint, kprintln, CONSOLE};
 use core::time::Duration;
 use pi::timer::spin_sleep;
 
 
 use allocator::Allocator;
-use fs::FileSystem;
+// DEBUG use fs::FileSystem;
 
 #[cfg_attr(not(test), global_allocator)]
 pub static ALLOCATOR: Allocator = Allocator::uninitialized();
-pub static FILESYSTEM: FileSystem = FileSystem::uninitialized();
+// DEBUG pub static FILESYSTEM: FileSystem = FileSystem::uninitialized();
 
 fn kmain() -> ! {
-    unsafe {
+    /* DEBUG unsafe {
         ALLOCATOR.initialize();
         FILESYSTEM.initialize();
-    }
+    }*/
 
     kprintln!("Welcome to cs3210!");
     shell::shell("> ");
