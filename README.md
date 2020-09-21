@@ -90,13 +90,13 @@ Write `stack-vec`, `volatile`, `ttywrite`, and `xmodem` libraries.
 - [x] Subphase A: Getting Started
 - [x] Subphase B: System Timer
 - [x] Subphase C: GPIO
-- [X] Subphase D: UART
-- [X] Subphase E: The Shell
+- [x] Subphase D: UART
+- [x] Subphase E: The Shell
      
 ### Phase 4: Boot 'em Up
-- [ ] Loading Binaries
-- [ ] Making Space
-- [ ] Implementing the Bootloader
+- [x] Loading Binaries
+- [x] Making Space
+- [x] Implementing the Bootloader
 
 ## FAT32 Filesystem
 Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignments/2-fs/).
@@ -121,7 +121,7 @@ Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignment
 ### Phase 4: Mo'sh
 - [ ] Working Directory
 - [ ] Commands
-- [ ]  Implementation
+- [ ] Implementation
 
 
 ## Why Rust?
