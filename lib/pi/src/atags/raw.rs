@@ -19,12 +19,16 @@ impl Atag {
     pub const CMDLINE: u32 = 0x54410009;
 
     /// Returns the ATAG following `self`, if there is one.
-    pub fn next(&self) -> Option<&Atag> {	
-	let atag_ptr = self as *const Atag as *const u32;
-	let next_atag = unsafe {&*(atag_ptr.add(self.dwords as usize) as *const Atag)};
-	match next_atag.tag {
-	    Atag::CORE | Atag::MEM | Atag::CMDLINE => Some(next_atag),
-	    _ => None
+    pub fn next(&self) -> Option<&Atag> {
+	match self.tag  {
+	    Atag::CORE | Atag::MEM | Atag::CMDLINE => {
+		let current = self as *const Atag as *const u32;
+		let next: &Atag = unsafe {
+		    &*(current.add(self.dwords as usize) as *const Atag)
+		};
+		Some(next)
+	    }
+	    _ => None,
 	}
     }
 }
