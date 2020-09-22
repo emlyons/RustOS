@@ -14,7 +14,6 @@ use crate::ALLOCATOR;
 
 use shim::io::Write;
 use core::str;
-
 use pi::gpio;
 
 const NEWLINE: u8 = 10;
