@@ -25,8 +25,7 @@ impl Iterator for Atags {
 
     fn next(&mut self) -> Option<Atag> {
 	let current = self.ptr?;
-	let next = current.next()?;
-	self.ptr = Some(next);
+	self.ptr = current.next();
 	Some(Atag::from(current))
     }
 }

@@ -56,7 +56,7 @@ impl From<&'static raw::Atag> for Atag {
 		    let index = slice::from_raw_parts(cmd_ptr, cmd_len).iter().position(|&x| x == 0).unwrap();
 
 		    // cast [u8] into str
-		    let cmd_slice = slice::from_raw_parts(cmd_ptr, index + 1);
+		    let cmd_slice = slice::from_raw_parts(cmd_ptr, index);
 		    let cmd_str: &'static str = str::from_utf8(cmd_slice).unwrap(); 
 		    Atag::Cmd(cmd_str)
 		},
