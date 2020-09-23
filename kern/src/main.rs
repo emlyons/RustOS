@@ -39,13 +39,16 @@ pub static ALLOCATOR: Allocator = Allocator::uninitialized();
 // DEBUG pub static FILESYSTEM: FileSystem = FileSystem::uninitialized();
 
 fn kmain() -> ! {
-    /* DEBUG unsafe {
-        ALLOCATOR.initialize();
-        FILESYSTEM.initialize();
-}*/
 
+    // ATAG report
     let atag = atags::Atags::get();
     atag.for_each(|x| kprintln!("{:#?}\n\n", x));
+
+    
+    unsafe {
+        ALLOCATOR.initialize();
+    //    FILESYSTEM.initialize();
+    }
     
     
     kprintln!("

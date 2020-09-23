@@ -4,13 +4,14 @@ mod util;
 mod bin;
 mod bump;
 
-type AllocatorImpl = bin::Allocator;
+type AllocatorImpl = bump::Allocator;
 
 #[cfg(test)]
 mod tests;
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::fmt;
+use core::cmp;
 
 use crate::console::kprintln;
 use crate::mutex::Mutex;
@@ -77,8 +78,20 @@ extern "C" {
 pub fn memory_map() -> Option<(usize, usize)> {
     let page_size = 1 << 12;
     let binary_end = unsafe { (&__text_end as *const u8) as usize };
-
-    unimplemented!("memory map")
+    
+    for atag in Atags::get() {
+	match atag.mem() {
+	    Some(mem) => {
+		let start_addr: usize = cmp::max(binary_end, mem.start as usize);
+		let end_addr: usize = mem.start as usize + mem.size as usize;
+		assert!(start_addr < end_addr);
+		return Some((start_addr, end_addr));
+	    },
+	    _ => continue,
+		
+	}
+    }
+    None
 }
 
 impl fmt::Debug for Allocator {
