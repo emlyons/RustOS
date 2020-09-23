@@ -28,6 +28,7 @@ pub mod shell;
 use console::{kprint, kprintln, CONSOLE};
 use core::time::Duration;
 use pi::timer::spin_sleep;
+use pi::atags;
 
 
 use allocator::Allocator;
@@ -41,8 +42,27 @@ fn kmain() -> ! {
     /* DEBUG unsafe {
         ALLOCATOR.initialize();
         FILESYSTEM.initialize();
-    }*/
+}*/
 
-    kprintln!("Welcome to cs3210!");
+    let atag = atags::Atags::get();
+    atag.for_each(|x| kprintln!("{:#?}\n\n", x));
+    
+    
+    kprintln!("
+   .~~.   .~~.
+  '. \\ ' ' / .'
+   .~ .~~~..~.
+  : .~.'~'.~. :
+ ~ (   ) (   ) ~
+( : '~'.~.'~' : )
+ ~ .~ (   ) ~. ~
+  (  : '~' :  )
+   '~ .~~~. ~'
+       '~'
+Welcome to rustOS on Raspberry Pi!
+");
+    
+
+    
     shell::shell("> ");
 }
