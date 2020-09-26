@@ -40,7 +40,7 @@ pub static ALLOCATOR: Allocator = Allocator::uninitialized();
 
 fn kmain() -> ! {
 
-    spin_sleep(Duration::from_secs(5));
+    spin_sleep(Duration::from_secs(1));
     
     // ATAG report
     let atag = atags::Atags::get();
@@ -50,14 +50,6 @@ fn kmain() -> ! {
     unsafe {
         ALLOCATOR.initialize();
     //    FILESYSTEM.initialize();
-    }
-
-    use alloc::vec::Vec;
-
-    let mut v = Vec::new();
-    for i in 0..50 {
-	v.push(i);
-	kprintln!("{:?}", v);
     }
     
     kprintln!("
