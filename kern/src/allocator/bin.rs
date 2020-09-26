@@ -9,43 +9,34 @@ use crate::allocator::LocalAlloc;
 
 use crate::console::kprintln;
 
-const ALLOC_BOUND: usize = 64;
-
-/// returns index such that Allocator.align[index] is the lowest index for which the alignment requirement is satisfied
-/// align is a byte value, the hash returns an index into the align member of an Allocator struct
-/// align is assumed to be a power of two
-fn align_hash (align: usize) -> usize {
-    let hash = align.next_power_of_two().trailing_zeros() as usize;
-    hash
-}
+const ALLOC_BOUND: usize = 64 - 3;
 
 /// returns index such that Allocator.align[X][index] is tightest bounded block on the size requirement
 /// size is a byte value, the hash returns an index into an element of an align member of an Allocator struct
-fn size_hash (size: usize) -> usize {
-    let hash = cmp::max(size.next_power_of_two().trailing_zeros() as usize, 3) - 3;
-    hash
+fn get_bin (size: usize) -> usize {
+    let bin_size = get_bin_size(size);
+    cmp::max(bin_size.trailing_zeros() as usize, 3) - 3
 }
 
-/// returns the largest power of two for which addr is aligned
-///
-/// # Panics
-///
-/// Panics if `addr` is not aligned to a power of 2.
-pub fn strongest_align (addr: usize) -> usize {
-    addr.trailing_zeros() as usize
+/// returns the adjusted bin size, bins are power of two sized to reduce fragmentation
+fn get_bin_size (size: usize) -> usize {
+    size.next_power_of_two()
 }
 
-fn bump(current: usize, end: usize, align: usize, size: usize) -> Option<(usize, usize)> {
+fn is_align (addr: usize, align: usize) -> bool {
+    (addr % align) == 0
+}
+
+fn bump(current: usize, end: usize, size: usize, align: usize) -> Option<usize> {
     let aligned_addr = align_up(current, align);
-    let (next, overflow) = aligned_addr.overflowing_add(size.next_power_of_two());
-    let size = next - current;
+    let (next, overflow) = aligned_addr.overflowing_add(size);
     
     // not enough space
     if (next > end) || overflow {
 	None
     }
     else {
-	Some((aligned_addr, size))
+	Some(aligned_addr)
     }	    
 }
 
@@ -62,10 +53,9 @@ fn bump(current: usize, end: usize, align: usize, size: usize) -> Option<(usize,
 pub struct Allocator {
     // FIXME: Add the necessary fields.
     current: usize,
-    start: usize,
     end: usize,
-    free_block: [[LinkedList; ALLOC_BOUND]; ALLOC_BOUND],
-    free_hole: LinkedList,
+    free_block: [LinkedList; ALLOC_BOUND],
+    unused: LinkedList,
     frag_count: usize,
 }
 
@@ -75,121 +65,81 @@ impl Allocator {
     pub fn new(start: usize, end: usize) -> Allocator {
 	Allocator {
 	    current: start,
-	    start: start,
 	    end: end,
-	    free_block: [[LinkedList::new(); ALLOC_BOUND]; ALLOC_BOUND],
-	    free_hole: LinkedList::new(),
+	    free_block: [LinkedList::new(); ALLOC_BOUND],
+	    unused: LinkedList::new(),
 	    frag_count: 0,
 	}
     }
 
-    /// returns a block of the minimum bounding size that meets alignment requirement
-    /// searches for a free block in the allocation struct
-    /// if no block exists creates new block from free memory
-    fn get_block(&mut self, layout: Layout) -> Option<*mut u8> {
-	let mut align_index = align_hash(layout.align());
-	let bin_index = size_hash(layout.size());
-	let bin_size = layout.size().next_power_of_two();
-	kprintln!("Alloc: align: {}  bin: {}", align_index, bin_index);
-	
-	// search for existing block
-	while align_index < ALLOC_BOUND {
-	    if self.free_block[align_index][bin_index].is_empty() {
-		align_index += 1;
-	    } else {
-		kprintln!("block existed");
-		return Some(self.free_block[align_index][bin_index].pop().unwrap() as *mut u8);
-	    }
-	}
-
-	// search for free hole
-	if let Some(addr) = self.get_from_free_hole(layout.align(), bin_size) {
-	    kprintln!("free hole used");
-	    return Some(addr);
-	}
-	
-	// no existing block
-	kprintln!("block made");
-	self.make_block(layout)
-    }
-
-    /// allocates blocks of layout.SIZE and inserts into Allocator stryct until one that meets alignment requirement is made
-    /// The aligned block is not inserted but a pointer to the block is returned
-    fn make_block(&mut self, layout: Layout) -> Option<*mut u8> {
-	let size: usize = layout.size();
-	let align: usize = layout.align();
-	
-	// mearest aligned address
-	if let Some((block_addr, block_size)) = bump(self.current, self.end, align, size) {
-	
-	    // save unallocated memory to free hole list
-	    self.frag_count += self.save_free_hole(self.current, block_addr - self.current);
-
-	    // return aligned block
-	    self.current = block_addr + block_size;
-	    Some(block_addr as *mut u8)
-	}
-	else {
-
-	    unreachable!("\n\n\n stack was exhausted, FRAG_COUNT = {} \n HEAP_SIZE = {}  \n\n\n", self.frag_count, self.end - self.start);
-	    return None;
-	}
-    }
-    
-    fn insert_block(&mut self, ptr: *mut u8, layout: Layout) {
-	let align_index = strongest_align(ptr as usize);
-	let bin_index = size_hash(layout.size());
-	assert!(align_index >= align_hash(layout.align()));
-	assert!(!ptr.is_null());
-	kprintln!("Dealloc: align: {}  bin: {}", align_index, bin_index);
-	unsafe {self.free_block[align_index][bin_index].push(ptr as *mut usize);}
-    }
-
-    fn save_free_hole(&mut self, addr: usize, mut size: usize) -> usize {
-	if size >= 16 {
-	    unsafe {
-		*((addr + 8) as *mut usize) = size;
-		self.free_hole.push(addr as *mut usize);
-		size = 0;
-	    }
-	}
-	else if size >= 8 {
-	    let align = usize::pow(2, strongest_align(addr) as u32);
-	    let hole_layout = Layout::from_size_align(size, align).unwrap();
-	    self.insert_block(addr as *mut u8, hole_layout);
-	    size - 8;
-	}
-	return size;
-    }
-
-    fn get_from_free_hole(&mut self, align: usize, size: usize) -> Option<*mut u8> {
+    /// examines the list of externally fragmented memory for a block meeting allocation requirements
+    /// if a black is found it is removed from the list
+    /// the truncated region is partitioned into the new block and the remaning fragments the latter of which is reinserted to the fragmented memory list
+    fn find_block_external_frag (&mut self, size: usize, align: usize) -> Option<*mut u8> {
 
 	let mut block: Option<*mut u8> = None;
-	let mut used_free = LinkedList::new();
+	let mut inspect_list = LinkedList::new();
 
-	while !self.free_hole.is_empty() {
-	    let free_hole = self.free_hole.pop().unwrap();
-	    let free_size = unsafe {*((free_hole as usize + 8) as *mut usize)};
+	while !self.unused.is_empty() {
+	    let frag = self.unused.pop().unwrap();
+	    let frag_size = unsafe {*((frag as usize + 8) as *mut usize)};
 
-	    if let Some((align_addr, align_size)) = bump(free_hole as usize, free_hole as usize + free_size, align, size) {
-		let pre_start = free_hole as usize;
+	    if let Some(align_addr) = bump(frag as usize, frag as usize + frag_size, size, align) {
+		// save preceding fragment
+		let pre_start = frag as usize;
 		let pre_size = align_addr - pre_start;
-		self.frag_count += self.save_free_hole(pre_start, pre_size);
-		let post_start = align_addr + align_size;
-		let post_size = (free_hole as usize + free_size) - post_start;
-		self.frag_count += self.save_free_hole(post_start, post_size);
+		self.save_external_frag(pre_start, pre_size);
+
+		// save proceding fragment
+		let post_start = align_addr + size;
+		let post_size = (frag as usize + frag_size) - post_start;
+		self.save_external_frag(post_start, post_size);
+
 		block = Some(align_addr as *mut u8);
 		break;
-	    }    
-	    unsafe{used_free.push(free_hole)};
+	    }
+	    unsafe{inspect_list.push(frag)};
 	}
 
 	// replace removed free holes
-	while !used_free.is_empty() {
-	    let free_hole = used_free.pop().unwrap();	    
-	    unsafe {self.free_hole.push(free_hole)};
+	while !inspect_list.is_empty() {
+	    let frag = inspect_list.pop().unwrap();	    
+	    unsafe {self.unused.push(frag)};
 	}
 	return block;
+    }
+
+    /// saves reference to region lost due to alignment constraints on allocation of new blocks
+    /// these unused regions are check in the future as a last effort before allocating new memory
+    fn save_external_frag (&mut self, start: usize, size: usize) {
+	if size >= 16 {
+	    unsafe {
+		*((start + 8) as *mut usize) = size;
+		self.unused.push(start as *mut usize);
+	    }
+	}
+	else if size >= 8 {
+	    let bin_index = get_bin(8);
+	    unsafe {
+		self.free_block[bin_index].push(start as *mut usize);
+	    }
+	    self.frag_count += size - 8;
+	}
+	else {
+	    self.frag_count += size;
+	}
+	self.frag_count += size;
+    }
+
+    /// adds a block to free block structure
+    /// this is called on deallocation and assumes the block is no longer in use by the caller
+    fn insert_block(&mut self, ptr: *mut u8, layout: Layout) {
+	let size = cmp::max(layout.size(), layout.align());
+	let bin_index = get_bin(size);
+
+	unsafe {
+	    self.free_block[bin_index].push(ptr as *mut usize);
+	}
     }
 }
 
@@ -216,10 +166,31 @@ impl LocalAlloc for Allocator {
     /// or `layout` does not meet this allocator's
     /// size or alignment constraints.
     unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
-	match self.get_block(layout) {
-	    Some(addr) => addr,
-	    _ => ptr::null_mut(),
+	let size = cmp::max(layout.size(), layout.align());
+	let bin_index = get_bin(size);
+
+	// search for reusable block
+	for block in self.free_block[bin_index].iter_mut() {
+	    if is_align(block.value() as usize, layout.align()) {
+		kprintln!("existing block");
+		return block.pop() as *mut u8;
+	    }
 	}
+
+	// search for block in externally fragmented memory
+	if let Some(addr) = self.find_block_external_frag(size, layout.align()) {
+	    return addr as * mut u8;
+	}
+
+	// if no block bump allocate more memory
+	if let Some(addr) = bump(self.current, self.end, size, layout.align()) {
+	    self.save_external_frag(self.current, addr - self.current);
+	    self.current = addr + size;
+	    return addr as *mut u8;
+	}
+
+	// exhausted
+	ptr::null_mut()
     }
 
     /// Deallocates the memory referenced by `ptr`.
