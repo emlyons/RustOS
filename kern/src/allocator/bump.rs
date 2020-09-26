@@ -50,10 +50,10 @@ impl LocalAlloc for Allocator {
 	let alloc_addr = align_up(self.current, align);
 
 	// increment current for size of allocation
-	let next = alloc_addr.saturating_add(size);
+	let (next, overflow) = alloc_addr.overflowing_add(size);
 
 	// verify available space
-	if next > self.end {
+	if next > self.end || overflow {
 	    ptr::null_mut()
 	}
 	else {

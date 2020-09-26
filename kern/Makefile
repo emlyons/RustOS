@@ -37,10 +37,11 @@ check:
 qemu: build
 	./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd $(QEMU_ARGS)
 
-qemu-gdb: build
-	./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd -s -S
+qemu-gdb: debug
+	./qemu.sh build/$(KERN).bin
+	#./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd -s -S
 
-qemu-asm: build
+qemu-asm: debug
 	./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd -d in_asm
 
 
