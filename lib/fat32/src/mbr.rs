@@ -1,11 +1,11 @@
 use core::fmt;
-use core::mem::size_of;
-use core::mem::transmute;
+use core::mem::{size_of, transmute};
 use shim::const_assert_size;
 use shim::io;
 
 use crate::traits::BlockDevice;
 
+const MBR_SECTOR: u64 = 0;
 const MBR_SIZE: usize = size_of::<MasterBootRecord>();
 const VALID_BOOTSEC: u16 = 0x55AA;
 const INACTIVE_PART: u8 = 0x00;
@@ -23,8 +23,7 @@ impl fmt::Debug for CHS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("CHS")
             .field("head", &self.head)
-	    .field("sector", &(self.sector_cylinder[0] & 0x3f))
-            .field("cylinder", &((self.sector_cylinder[0] & 0xC0) + (self.sector_cylinder[1] & 0xFF) << 8))
+	    .field("sector_cylinder", &self.sector_cylinder[0])
 	    .finish()
     }
 }
@@ -86,10 +85,10 @@ impl fmt::Debug for MasterBootRecord {
 const_assert_size!(MasterBootRecord, 512);
 
 /// Verifies the boot indicator of a partition entry conforms to a valid FAT32 value
-fn verify_boot_indicator(pte: PartitionEntry) -> Result<(), Error> {	
+fn verify_boot_indicator(pte: &PartitionEntry) -> Result<(), Error> {	
     let boot_indicator = pte.boot_indicator;
     
-    match (boot_indicator == INACTIVE_PART || boot_indicator == ACTIVE_PART) {
+    match boot_indicator == INACTIVE_PART || boot_indicator == ACTIVE_PART {
 	true => Ok(()),
 	false => Err(Error::UnknownBootIndicator(boot_indicator)),
     }	
@@ -121,16 +120,18 @@ impl MasterBootRecord {
     /// boot indicator. Returns `Io(err)` if the I/O error `err` occured while
     /// reading the MBR.
     pub fn from<T: BlockDevice>(mut device: T) -> Result<MasterBootRecord, Error> {
-	let mut sector_data: [u8; MBR_SIZE];
+	let mut sector_data: [u8; MBR_SIZE] = [0u8; MBR_SIZE];
 
 	// read sector
-	let read_size = device.read_sector(0, &mut sector_data)?;
+	let read_size = device.read_sector(MBR_SECTOR, &mut sector_data)?;
 
 	// cast sector_data to struct MasterBootRecord
 	if read_size != MBR_SIZE {
 	    return Err(Error::Io(io::Error::new(io::ErrorKind::Other, "MasterBootRecord size is invalid")));
 	}	
-	let mbr = transmute::<[u8; MBR_SIZE], MasterBootRecord>(sector_data);
+	let mbr = unsafe {
+	    transmute::<[u8; MBR_SIZE], MasterBootRecord>(sector_data)
+	};
 
 	// check signature
 	if mbr.signature != VALID_BOOTSEC {  // on fail return BadSignature
@@ -138,11 +139,39 @@ impl MasterBootRecord {
 	}
 
 	// check boot indicators for each pte (i.e. must be 0x00 (inactive) or 0x80 (bootable))
-	verify_boot_indicator(mbr.pte_first)?;
-	verify_boot_indicator(mbr.pte_second)?;
-	verify_boot_indicator(mbr.pte_third)?;
-	verify_boot_indicator(mbr.pte_fourth)?;
+	verify_boot_indicator(&mbr.pte_first)?;
+	verify_boot_indicator(&mbr.pte_second)?;
+	verify_boot_indicator(&mbr.pte_third)?;
+	verify_boot_indicator(&mbr.pte_fourth)?;
 
 	Ok(mbr)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mbr_mock_parse() -> Result<(), String> {
+	use shim::io::Cursor;
+
+	let mut mock_mbr_sector = [0u8; 512];
+
+	// set "Valid bootsector" signature
+	mock_mbr_sector[510] = 0xAA;
+	mock_mbr_sector[511] = 0x55;
+
+	// PTE signatures
+	mock_mbr_sector[446] = 0x80;
+	mock_mbr_sector[462] = 0x00;
+	mock_mbr_sector[478] = 0x00;
+	mock_mbr_sector[494] = 0x00;
+	
+	let block_device = Cursor::new(&mut mock_mbr_sector[..]);
+
+	MasterBootRecord::from(block_device).expect("mock MBR parse failed");
+
+	Ok(())
     }
 }
