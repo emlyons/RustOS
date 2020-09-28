@@ -1,8 +1,15 @@
 use core::fmt;
+use core::mem::size_of;
+use core::mem::transmute;
 use shim::const_assert_size;
 use shim::io;
 
 use crate::traits::BlockDevice;
+
+const MBR_SIZE: usize = size_of::<MasterBootRecord>();
+const VALID_BOOTSEC: u16 = 0x55AA;
+const INACTIVE_PART: u8 = 0x00;
+const ACTIVE_PART: u8 = 0x80;   	
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -12,16 +19,16 @@ pub struct CHS {
 }
 
 // FIXME: implement Debug for CHS
-//impl fmt::Debug for CHS {
-//    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//        f.debug_struct("CHS")
-//            .field("head", &self.head)
-//	    .field("sector", &(self.sector_cylinder & 0x003f))
-//            .finish("cylinder", &(self.sector_cylinder & 0xFFC0))
-//    }
-//}
+impl fmt::Debug for CHS {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("CHS")
+            .field("head", &self.head)
+	    .field("sector", &(self.sector_cylinder[0] & 0x3f))
+            .field("cylinder", &((self.sector_cylinder[0] & 0xC0) + (self.sector_cylinder[1] & 0xFF) << 8))
+	    .finish()
+    }
+}
 
-assert_eq!(align_of_vale(u16), 2);
 const_assert_size!(CHS, 3);
 
 #[repr(C, packed)]
@@ -78,6 +85,16 @@ impl fmt::Debug for MasterBootRecord {
 
 const_assert_size!(MasterBootRecord, 512);
 
+/// Verifies the boot indicator of a partition entry conforms to a valid FAT32 value
+fn verify_boot_indicator(pte: PartitionEntry) -> Result<(), Error> {	
+    let boot_indicator = pte.boot_indicator;
+    
+    match (boot_indicator == INACTIVE_PART || boot_indicator == ACTIVE_PART) {
+	true => Ok(()),
+	false => Err(Error::UnknownBootIndicator(boot_indicator)),
+    }	
+}
+
 #[derive(Debug)]
 pub enum Error {
     /// There was an I/O error while reading the MBR.
@@ -86,6 +103,12 @@ pub enum Error {
     UnknownBootIndicator(u8),
     /// The MBR magic signature was invalid.
     BadSignature,
+}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        Error::Io(error)
+    }
 }
 
 impl MasterBootRecord {
@@ -98,9 +121,28 @@ impl MasterBootRecord {
     /// boot indicator. Returns `Io(err)` if the I/O error `err` occured while
     /// reading the MBR.
     pub fn from<T: BlockDevice>(mut device: T) -> Result<MasterBootRecord, Error> {
-	let sector = [0u8; BlockDevice.sector_size()];
-//	let all_sectors = device.read_all_sector(
-	//      unimplemented!("MasterBootRecord::from()")
-	return Err(Error::BadSignature);
+	let mut sector_data: [u8; MBR_SIZE];
+
+	// read sector
+	let read_size = device.read_sector(0, &mut sector_data)?;
+
+	// cast sector_data to struct MasterBootRecord
+	if read_size != MBR_SIZE {
+	    return Err(Error::Io(io::Error::new(io::ErrorKind::Other, "MasterBootRecord size is invalid")));
+	}	
+	let mbr = transmute::<[u8; MBR_SIZE], MasterBootRecord>(sector_data);
+
+	// check signature
+	if mbr.signature != VALID_BOOTSEC {  // on fail return BadSignature
+	    return Err(Error::BadSignature);
+	}
+
+	// check boot indicators for each pte (i.e. must be 0x00 (inactive) or 0x80 (bootable))
+	verify_boot_indicator(mbr.pte_first)?;
+	verify_boot_indicator(mbr.pte_second)?;
+	verify_boot_indicator(mbr.pte_third)?;
+	verify_boot_indicator(mbr.pte_fourth)?;
+
+	Ok(mbr)
     }
 }
