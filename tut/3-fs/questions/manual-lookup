@@ -1,0 +1,21 @@
+find /a/b/c.txt
+
+Given root (and partition table entry #?) (FAT entry #)
+
+Get start of Partition (EBPB) @ MBR.#_partition_table_entry.relative_sector * physical_bytes_per_sector
+Get start of FATS @ EBPB.number_reserved_sectors * EBPB.bytes_per_sector
+Get start of DATA @ FATS + EBPB.num_fats * EBPB.sectors_per_fat * EBPB.bytes_per_sector
+
+Get root_FAT @ FATS + EBPB.root_num * 4-bytes
+Get root_DATA @ DATA + EBPB.root_num * EBPB.sectors_per_cluster * EBPB.bytes_per_sector
+
+Iterate on root_DATA with struct DIRECTORY ENTRY{}, if end of cluster reached... set root_DATA @ DATA + *root_FAT * EBPB.sectors_per_cluster * EBPB.bytes_per_sector
+	  match DIR_ENTRY.NAME = a
+	           Get DIR_FAT @ FATS + DIR_ENTRY.cluster_number * EBPB.bytes_per_sector
+		   Get DIR_DATA @ DATA + DIR_ENTRY.cluster_number * EBPB.bytes_per_sector
+
+repeat as similar now scanning DIR_DATA for b
+
+repeat as similar now scanning for c.txt
+
+return FD to c.txt

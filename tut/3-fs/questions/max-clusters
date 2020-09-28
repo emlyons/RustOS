@@ -1,0 +1,26 @@
+4 Partitions
+
+Number of Fats...
+Number of entries per FAT
+Each entry is 32-bits - 4 bytes
+
+sum is number of clusters
+
+Total sectors per partition - 4 bytes (2^32)
+Bytes per sector - 2 byte
+Number of sectors per FAT - 4 bytes
+
+
+(4 Partitions per file system)(2^32 sectors per FAT) * (2^16 bytes per sector) / (4 bytes per entry (cluster) = 2^48 clusters per FAT...
+but...
+
+Cluster ID 0xFFFFFEF - 0x2 = 0xFFFFFED
+or
+
+268,435,437 per Partition
+
+With 4 partitions
+
+1,073,741,748 per File System
+
+

@@ -1,0 +1,4 @@
+The 11th byte of the directory entry
+
+if (BYTE & 0x01) | (BYTE & 0x02) | (BYTE & 0x04) | (BYTE & 0x08) == 1 then LFN
+i.e. 0x0F
