@@ -39,7 +39,28 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
     where
         T: BlockDevice + 'static,
     {
-        unimplemented!("VFat::from()")
+	// TODO: parse from BlockDevice
+	let mut mbr = MasterBootRecord::from(&mut device)?;
+	let pte = mbr.get_vfat_pte()?;
+	let partition_start = pte.relative_sector as u64;
+	let partition_length = pte.total_sectors as u64;
+	let ebpb = BiosParameterBlock::from(&mut device, partition_start)?;
+	let sector_size = ebpb.byte_per_sector as u64;
+	
+	let partition = Partition { start: partition_start, num_sectors: partition_length, sector_size: sector_size };
+//	let cached_partition = CachedPartition::new(device, partition);// CachedPartition
+	// bytes_per_sector
+	// sectors_per_cluster
+	// sectors_per_fat32
+	// fat_start_sector
+	// data_start_sector
+	// rootdir_cluster
+	
+	// MasterBootRecord
+	// BiosParameterBlock
+	// CachedPartition
+	
+        Err(Error::Io(io::Error::new(io::ErrorKind::Other, "VFat handle from BlockDevice failed")))
     }
 
     // TODO: The following methods may be useful here:

@@ -36,8 +36,8 @@ pub struct PartitionEntry {
     start_chs: CHS,
     partition_type: u8,
     end_chs: CHS,
-    relative_sector: u32, // offset, in sectors, from start of disk to start of parition
-    total_sectors: u32,
+    pub relative_sector: u32, // offset, in sectors, from start of disk to start of parition
+    pub total_sectors: u32,
 }
 
 // FIXME: implement Debug for PartitionEntry
@@ -61,10 +61,7 @@ const_assert_size!(PartitionEntry, 16);
 pub struct MasterBootRecord {
     MBR_Bootstrap: [u8; 436],
     disk_ID: [u8; 10],
-    pte_first: PartitionEntry,
-    pte_second: PartitionEntry,
-    pte_third: PartitionEntry,
-    pte_fourth: PartitionEntry,
+    pte: [PartitionEntry; 4],
     signature: u16,
 }
 
@@ -73,26 +70,16 @@ impl fmt::Debug for MasterBootRecord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("MasterBootRecord")
             .field("disk_ID", &self.disk_ID)
-	    .field("pte_first", &self.pte_first)
-	    .field("pte_second", &self.pte_second)
-	    .field("pte_third", &self.pte_third)
-	    .field("pte_fourth", &self.pte_fourth)
+	    .field("pte_first", &self.pte[0])
+	    .field("pte_second", &self.pte[1])
+	    .field("pte_third", &self.pte[2])
+	    .field("pte_fourth", &self.pte[3])
 	    .field("signature", &self.signature)
             .finish()
     }
 }
 
 const_assert_size!(MasterBootRecord, 512);
-
-/// Verifies the boot indicator of a partition entry conforms to a valid FAT32 value
-fn verify_boot_indicator(pte: &PartitionEntry, partition_number: u8) -> Result<(), Error> {	
-    let boot_indicator = pte.boot_indicator;
-    
-    match boot_indicator == INACTIVE_PART || boot_indicator == ACTIVE_PART {
-	true => Ok(()),
-	false => Err(Error::UnknownBootIndicator(partition_number)),
-    }	
-}
 
 #[derive(Debug)]
 pub enum Error {
@@ -129,7 +116,7 @@ impl MasterBootRecord {
 	if read_size != MBR_SIZE {
 	    return Err(Error::Io(io::Error::new(io::ErrorKind::Other, "MasterBootRecord size is invalid")));
 	}	
-	let mbr = unsafe {
+	let mut mbr = unsafe {
 	    transmute::<[u8; MBR_SIZE], MasterBootRecord>(sector_data)
 	};
 
@@ -139,12 +126,32 @@ impl MasterBootRecord {
 	}
 
 	// check boot indicators for each pte (i.e. must be 0x00 (inactive) or 0x80 (bootable))
-	verify_boot_indicator(&mbr.pte_first, 0)?;
-	verify_boot_indicator(&mbr.pte_second, 1)?;
-	verify_boot_indicator(&mbr.pte_third, 2)?;
-	verify_boot_indicator(&mbr.pte_fourth, 3)?;
-
+	mbr.verify_boot_indicators()?;
+	
 	Ok(mbr)
+    }
+
+    /// returns the first bootable partition in the master boot record
+    /// the file system supports a single partition
+    pub fn get_vfat_pte (&mut self) ->  Result<(&PartitionEntry), Error> {
+	let pte_iter = self.pte.iter().enumerate();
+	for (n, pte) in pte_iter {
+	    if pte.boot_indicator == ACTIVE_PART {
+		return Ok(pte);
+	    }
+	}
+	return Err(Error::Io(io::Error::new(io::ErrorKind::Other, "no bootable partition found")));
+    }
+
+    /// Verifies the boot indicators of all partition entry conforms to a valid FAT32 value
+    fn verify_boot_indicators(&mut self) -> Result<(), Error> {
+	let pte_iter = self.pte.iter().enumerate();
+	for (n, pte) in pte_iter {
+	    if pte.boot_indicator != ACTIVE_PART && pte.boot_indicator != INACTIVE_PART {
+		return Err(Error::UnknownBootIndicator(n as u8));
+	    }
+	}
+	Ok(())
     }
 }
 
@@ -152,6 +159,13 @@ impl MasterBootRecord {
 mod tests {
     use super::*;
     use shim::io::Cursor;
+
+    macro expect_variant($e:expr, $variant:pat $(if $($cond:tt)*)*) {
+	match $e {
+            $variant $(if $($cond)*)* => {  },
+            o => panic!("expected '{}' but found '{:?}'", stringify!($variant), o)
+	}
+    }
 
     #[test]
     fn mbr_mock_parse() -> Result<(), String> {
@@ -173,5 +187,21 @@ mod tests {
 	MasterBootRecord::from(block_device).expect("mock MBR parse failed");
 
 	Ok(())
+    }
+
+    #[test]
+    fn zag() {
+	let mut data = [0u8; 512];
+	data[510..].copy_from_slice(&[0x55, 0xAA]);
+
+	for i in 0..4usize {
+            data[446 + (i.saturating_sub(1) * 16)] = 0;
+            data[446 + (i * 16)] = 0xFF;
+            let e = MasterBootRecord::from(Cursor::new(&mut data[..])).unwrap_err();
+            expect_variant!(e, Error::UnknownBootIndicator(p) if p == i as u8);
+	}
+	
+	data[446 + (3 * 16)] = 0;
+	MasterBootRecord::from(Cursor::new(&mut data[..])).unwrap();
     }
 }

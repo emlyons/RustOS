@@ -15,7 +15,7 @@ pub struct BiosParameterBlock {
     // FIXME: Fill me in.
     jmp_short_xx_nop: [u8; 3],
     oem_ID: u64,
-    byte_per_sector: u16,
+    pub byte_per_sector: u16,
     sector_per_cluster: u8,
     reserved_sector: u16,
     num_FAT: u8,
