@@ -12,6 +12,12 @@ struct CacheEntry {
     dirty: bool,
 }
 
+impl CacheEntry {
+    fn new() -> CacheEntry {
+	CacheEntry { data: Vec::new(), dirty: false }
+    }
+}
+
 pub struct Partition {
     /// The physical sector where the partition begins.
     pub start: u64,
@@ -76,6 +82,45 @@ impl CachedPartition {
         Some(physical_sector)
     }
 
+    /// maps a logical sector to a physical sector
+    /// returns the start index of the physical sector and the number of physical sectors
+    /// (index of first physical sector in logical sector, number of physical sectors in logical sector) \
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if requested sector is invalid
+    fn map_sector(&mut self, sector: u64) -> io::Result<((u64, u64))> {
+	if let Some(physical_sector) = self.virtual_to_physical(sector) {
+	    let num_physical_sector = self.factor();
+	    Ok((physical_sector, num_physical_sector))
+	}
+	else {
+	    Err(io::Error::new(io::ErrorKind::Interrupted, "invalid logical sector requested"))
+	}
+    }
+
+    /// reads logical sector for backing store (block device)
+    /// adds new entry for logical sector to cache
+    /// if sector is already cached, the current cache will be overwritten.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is an error reading the sector from the disk.
+    fn cache_sector(&mut self, sector: u64) -> io::Result<()> {
+	let mut new_entry = CacheEntry::new();
+	let mut physical_sector: u64 = 0;
+	    
+	// map logical sector to physical sector
+	let (phys_sector, num_phys) = self.map_sector(sector)?;
+
+	// cache from block device
+	for n in 0..num_phys {
+	    self.device.read_all_sector(phys_sector + n, &mut new_entry.data)?;
+	}	    
+	self.cache.insert(sector, new_entry);
+	Ok(())
+    }
+
     /// Returns a mutable reference to the cached sector `sector`. If the sector
     /// is not already cached, the sector is first read from the disk.
     ///
@@ -87,7 +132,14 @@ impl CachedPartition {
     ///
     /// Returns an error if there is an error reading the sector from the disk.
     pub fn get_mut(&mut self, sector: u64) -> io::Result<&mut [u8]> {
-        unimplemented!("CachedPartition::get_mut()")
+	// check cache for logical sector and read if not present
+	if !self.cache.contains_key(&sector) {
+	    self.cache_sector(sector)?;
+	}
+
+	// return sector from cache
+	let entry = self.cache.get_mut(&sector).unwrap();
+	return Ok(entry.data.as_mut_slice());
     }
 
     /// Returns a reference to the cached sector `sector`. If the sector is not
@@ -97,7 +149,14 @@ impl CachedPartition {
     ///
     /// Returns an error if there is an error reading the sector from the disk.
     pub fn get(&mut self, sector: u64) -> io::Result<&[u8]> {
-        unimplemented!("CachedPartition::get()")
+	// check cache for logical sector and read if not present
+	if !self.cache.contains_key(&sector) {
+	    self.cache_sector(sector)?;
+	}
+
+	// return sector from cache
+	let entry = self.cache.get(&sector).unwrap();
+	return Ok(entry.data.as_slice());
     }
 }
 
@@ -105,15 +164,16 @@ impl CachedPartition {
 // `write_sector` methods should only read/write from/to cached sectors.
 impl BlockDevice for CachedPartition {
     fn sector_size(&self) -> u64 {
-        unimplemented!()
+	self.partition.sector_size
     }
 
     fn read_sector(&mut self, sector: u64, buf: &mut [u8]) -> io::Result<usize> {
-        unimplemented!()
+	//        buf = self.cache.get(sector)?;
+	unimplemented!("read_sector")
     }
 
     fn write_sector(&mut self, sector: u64, buf: &[u8]) -> io::Result<usize> {
-        unimplemented!()
+	unimplemented!("write_sector")
     }
 }
 

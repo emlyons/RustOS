@@ -7,7 +7,7 @@ use crate::traits::BlockDevice;
 
 const MBR_SECTOR: u64 = 0;
 const MBR_SIZE: usize = size_of::<MasterBootRecord>();
-const VALID_BOOTSEC: u16 = 0x55AA;
+const VALID_BOOTSEC: u16 = 0xAA55;
 const INACTIVE_PART: u8 = 0x00;
 const ACTIVE_PART: u8 = 0x80;   	
 
@@ -151,16 +151,16 @@ impl MasterBootRecord {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shim::io::Cursor;
 
     #[test]
     fn mbr_mock_parse() -> Result<(), String> {
-	use shim::io::Cursor;
 
 	let mut mock_mbr_sector = [0u8; 512];
 
 	// set "Valid bootsector" signature
-	mock_mbr_sector[510] = 0xAA;
-	mock_mbr_sector[511] = 0x55;
+	mock_mbr_sector[510] = 0x55;
+	mock_mbr_sector[511] = 0xAA;
 
 	// PTE signatures
 	mock_mbr_sector[446] = 0x80;

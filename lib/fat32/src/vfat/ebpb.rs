@@ -68,9 +68,9 @@ impl BiosParameterBlock {
 	};
 
 	// check signatures
-	if ebpb.signature != VALID_SIG_A && ebpb.signature != VALID_SIG_B {
-	    return Err(Error::BadSignature);
-	}
+	//if ebpb.signature != VALID_SIG_A && ebpb.signature != VALID_SIG_B {
+	//    return Err(Error::BadSignature);
+	//}
 
 	if ebpb.boot_signature != BOOT_SIG {
 	    return Err(Error::BadSignature);
@@ -130,15 +130,15 @@ mod tests {
 	let mut mock_ebpb_sector = [0u8; 1024];
 
 	// signature
-	mock_ebpb_sector[512 + 66] = 0x28;
+	mock_ebpb_sector[66] = 0x29;
 
 	// boot signature
-	mock_ebpb_sector[512 + 510] = 0x55;
-	mock_ebpb_sector[512 + 511] = 0xAA;
+	mock_ebpb_sector[510] = 0x55;
+	mock_ebpb_sector[511] = 0xAA;
 	
 	let block_device = Cursor::new(&mut mock_ebpb_sector[..]);
 
-	BiosParameterBlock::from(block_device, 1).expect("mock EBPB parse failed");
+	BiosParameterBlock::from(block_device, 0).expect("mock EBPB parse failed");
 
 	Ok(())
     }
