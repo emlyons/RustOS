@@ -85,12 +85,12 @@ impl fmt::Debug for MasterBootRecord {
 const_assert_size!(MasterBootRecord, 512);
 
 /// Verifies the boot indicator of a partition entry conforms to a valid FAT32 value
-fn verify_boot_indicator(pte: &PartitionEntry) -> Result<(), Error> {	
+fn verify_boot_indicator(pte: &PartitionEntry, partition_number: u8) -> Result<(), Error> {	
     let boot_indicator = pte.boot_indicator;
     
     match boot_indicator == INACTIVE_PART || boot_indicator == ACTIVE_PART {
 	true => Ok(()),
-	false => Err(Error::UnknownBootIndicator(boot_indicator)),
+	false => Err(Error::UnknownBootIndicator(partition_number)),
     }	
 }
 
@@ -139,10 +139,10 @@ impl MasterBootRecord {
 	}
 
 	// check boot indicators for each pte (i.e. must be 0x00 (inactive) or 0x80 (bootable))
-	verify_boot_indicator(&mbr.pte_first)?;
-	verify_boot_indicator(&mbr.pte_second)?;
-	verify_boot_indicator(&mbr.pte_third)?;
-	verify_boot_indicator(&mbr.pte_fourth)?;
+	verify_boot_indicator(&mbr.pte_first, 0)?;
+	verify_boot_indicator(&mbr.pte_second, 1)?;
+	verify_boot_indicator(&mbr.pte_third, 2)?;
+	verify_boot_indicator(&mbr.pte_fourth, 3)?;
 
 	Ok(mbr)
     }

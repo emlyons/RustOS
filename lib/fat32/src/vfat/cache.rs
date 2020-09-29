@@ -138,7 +138,8 @@ impl CachedPartition {
 	}
 
 	// return sector from cache
-	let entry = self.cache.get_mut(&sector).unwrap();
+	let mut entry = self.cache.get_mut(&sector).unwrap();
+	entry.dirty = true;
 	return Ok(entry.data.as_mut_slice());
     }
 
@@ -168,12 +169,14 @@ impl BlockDevice for CachedPartition {
     }
 
     fn read_sector(&mut self, sector: u64, buf: &mut [u8]) -> io::Result<usize> {
-	//        buf = self.cache.get(sector)?;
-	unimplemented!("read_sector")
+	buf.copy_from_slice(self.get(sector)?);
+	Ok(self.partition.sector_size as usize)
     }
 
     fn write_sector(&mut self, sector: u64, buf: &[u8]) -> io::Result<usize> {
-	unimplemented!("write_sector")
+	let mut cached_data = self.get_mut(sector)?;
+	cached_data.copy_from_slice(buf);
+	Ok(self.partition.sector_size as usize)
     }
 }
 
