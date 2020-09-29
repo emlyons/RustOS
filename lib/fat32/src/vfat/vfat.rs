@@ -34,33 +34,33 @@ pub struct VFat<HANDLE: VFatHandle> {
     rootdir_cluster: Cluster,
 }
 
+pub struct test<T> {
+    phantom: PhantomData<T>,
+    testo: u32,
+}
+
 impl<HANDLE: VFatHandle> VFat<HANDLE> {
     pub fn from<T>(mut device: T) -> Result<HANDLE, Error>
     where
         T: BlockDevice + 'static,
     {
-	// TODO: parse from BlockDevice
 	let mut mbr = MasterBootRecord::from(&mut device)?;
 	let pte = mbr.get_vfat_pte()?;
-	let partition_start = pte.relative_sector as u64;
-	let partition_length = pte.total_sectors as u64;
-	let ebpb = BiosParameterBlock::from(&mut device, partition_start)?;
-	let sector_size = ebpb.byte_per_sector as u64;
+	let fat_start_sector: u64 = pte.relative_sector as u64;
+	let fat_length = pte.total_sectors as u64;
+	let ebpb = BiosParameterBlock::from(&mut device, fat_start_sector)?;
+	let bytes_per_sector: u16 = ebpb.byte_per_sector;
+	let sectors_per_cluster: u8 = ebpb.sector_per_cluster;
+	let sectors_per_fat: u32 = ebpb.sector_per_FAT_alt;
+	let data_start_sector: u64 = ebpb.reserved_sector as u64;	
+	let rootdir_cluster: Cluster = Cluster::from(ebpb.root_cluster);
 	
-	let partition = Partition { start: partition_start, num_sectors: partition_length, sector_size: sector_size };
-//	let cached_partition = CachedPartition::new(device, partition);// CachedPartition
-	// bytes_per_sector
-	// sectors_per_cluster
-	// sectors_per_fat32
-	// fat_start_sector
-	// data_start_sector
-	// rootdir_cluster
+	let partition = Partition { start: fat_start_sector, num_sectors: fat_length, sector_size: bytes_per_sector as u64 };
+	let cached_partition: CachedPartition = CachedPartition::new(device, partition);
 	
-	// MasterBootRecord
-	// BiosParameterBlock
-	// CachedPartition
-	
-        Err(Error::Io(io::Error::new(io::ErrorKind::Other, "VFat handle from BlockDevice failed")))
+	let vfat: VFat<HANDLE> = VFat { phantom: PhantomData, device: cached_partition , bytes_per_sector: bytes_per_sector, sectors_per_cluster: sectors_per_cluster, sectors_per_fat: sectors_per_fat, fat_start_sector: fat_start_sector, data_start_sector: data_start_sector, rootdir_cluster: rootdir_cluster };
+
+	Ok(VFatHandle::new(vfat))
     }
 
     // TODO: The following methods may be useful here:

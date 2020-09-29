@@ -16,8 +16,8 @@ pub struct BiosParameterBlock {
     jmp_short_xx_nop: [u8; 3],
     oem_ID: u64,
     pub byte_per_sector: u16,
-    sector_per_cluster: u8,
-    reserved_sector: u16,
+    pub sector_per_cluster: u8,
+    pub reserved_sector: u16,
     num_FAT: u8,
     max_dir_entry: u16,
     total_logical_sector: u16,
@@ -29,10 +29,10 @@ pub struct BiosParameterBlock {
     total_logical_sector_alt: u32,
 
     // EBPB
-    sector_per_FAT_alt: u32,
+    pub sector_per_FAT_alt: u32,
     flags: u16,
     FAT_version: u16,
-    root_cluster: u32,
+    pub root_cluster: u32,
     FSInfo: u16,
     backup_boot: u16,
     reserved: [u8; 12],
