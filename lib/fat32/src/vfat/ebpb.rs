@@ -17,16 +17,16 @@ pub struct BiosParameterBlock {
     oem_ID: u64,
     pub byte_per_sector: u16,
     pub sector_per_cluster: u8,
-    pub reserved_sector: u16,
-    num_FAT: u8,
+    pub reserved_sector: u16, // offset to FAT entries
+    pub num_FAT: u8,
     max_dir_entry: u16,
-    total_logical_sector: u16,
+    pub total_logical_sector: u16,
     FAT_ID: u8,
     sector_per_FAT: u16,
     sector_per_track: u16,
     num_heads: u16,
     num_hidden_sector: u32,
-    total_logical_sector_alt: u32,
+    pub total_logical_sector_alt: u32,
 
     // EBPB
     pub sector_per_FAT_alt: u32,

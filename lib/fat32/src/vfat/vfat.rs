@@ -34,11 +34,6 @@ pub struct VFat<HANDLE: VFatHandle> {
     rootdir_cluster: Cluster,
 }
 
-pub struct test<T> {
-    phantom: PhantomData<T>,
-    testo: u32,
-}
-
 impl<HANDLE: VFatHandle> VFat<HANDLE> {
     pub fn from<T>(mut device: T) -> Result<HANDLE, Error>
     where
@@ -46,22 +41,27 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
     {
 	let mut mbr = MasterBootRecord::from(&mut device)?;
 	let pte = mbr.get_vfat_pte()?;
-	let fat_start_sector: u64 = pte.relative_sector as u64;
-	let fat_length = pte.total_sectors as u64;
-	let ebpb = BiosParameterBlock::from(&mut device, fat_start_sector)?;
-	let bytes_per_sector: u16 = ebpb.byte_per_sector;
-	let sectors_per_cluster: u8 = ebpb.sector_per_cluster;
-	let sectors_per_fat: u32 = ebpb.sector_per_FAT_alt;
-	let data_start_sector: u64 = ebpb.reserved_sector as u64;	
-	let rootdir_cluster: Cluster = Cluster::from(ebpb.root_cluster);
-	
-	let partition = Partition { start: fat_start_sector, num_sectors: fat_length, sector_size: bytes_per_sector as u64 };
-	let cached_partition: CachedPartition = CachedPartition::new(device, partition);
-	
-	let vfat: VFat<HANDLE> = VFat { phantom: PhantomData, device: cached_partition , bytes_per_sector: bytes_per_sector, sectors_per_cluster: sectors_per_cluster, sectors_per_fat: sectors_per_fat, fat_start_sector: fat_start_sector, data_start_sector: data_start_sector, rootdir_cluster: rootdir_cluster };
+	let ebpb = BiosParameterBlock::from(&mut device, pte.relative_sector as u64)?;
 
-	Ok(VFatHandle::new(vfat))
-	 
+	let num_logical_sector = match ebpb.total_logical_sector == 0 {
+	    true => {ebpb.total_logical_sector_alt as u64},
+	    false => {ebpb.total_logical_sector as u64},
+	};
+		
+	let partition = Partition { start: pte.relative_sector as u64, num_sectors: num_logical_sector as u64, sector_size: ebpb.byte_per_sector as u64 };
+	
+	let vfat: VFat<HANDLE> = VFat {
+	    phantom: PhantomData,
+	    device: CachedPartition::new(device, partition),
+	    bytes_per_sector: ebpb.byte_per_sector,
+	    sectors_per_cluster: ebpb.sector_per_cluster,
+	    sectors_per_fat: ebpb.sector_per_FAT_alt,
+	    fat_start_sector: pte.relative_sector as u64 + ebpb.reserved_sector as u64,
+	    data_start_sector: pte.relative_sector as u64 + ebpb.reserved_sector as u64 + ebpb.sector_per_FAT_alt as u64 * ebpb.num_FAT as u64,
+	    rootdir_cluster: Cluster::from(ebpb.root_cluster),
+	};
+
+	Ok(VFatHandle::new(vfat))	 
     }
 
     // TODO: The following methods may be useful here:
@@ -76,6 +76,18 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
     //    into a vector.
     //
     fn read_chain(&mut self, start: Cluster, buf: &mut Vec<u8>) -> io::Result<usize> {
+	// Data Clusters start >= 2
+	// entry 0 = ID, 1 = end of chain (EOC) marker
+
+	// FAT ENTRY
+	// FAT_base_addr 
+	// entry_size: 4
+	// offset: start * entry_size
+	// get entry at FAT_base_addr + offset
+
+	// CLUSTER
+	// 
+
 	unimplemented!("VFat::read_chain()")
     }
     
