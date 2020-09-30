@@ -61,32 +61,30 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	let vfat: VFat<HANDLE> = VFat { phantom: PhantomData, device: cached_partition , bytes_per_sector: bytes_per_sector, sectors_per_cluster: sectors_per_cluster, sectors_per_fat: sectors_per_fat, fat_start_sector: fat_start_sector, data_start_sector: data_start_sector, rootdir_cluster: rootdir_cluster };
 
 	Ok(VFatHandle::new(vfat))
+	 
     }
 
     // TODO: The following methods may be useful here:
     //
     //  * A method to read from an offset of a cluster into a buffer.
     //
-    //    fn read_cluster(
-    //        &mut self,
-    //        cluster: Cluster,
-    //        offset: usize,
-    //        buf: &mut [u8]
-    //    ) -> io::Result<usize>;
-    //
+    fn read_cluster(&mut self, cluster: Cluster, offset: usize, buf: &mut [u8]) -> io::Result<usize> {
+	unimplemented!("VFat::read_cluster()")
+    }
+    
     //  * A method to read all of the clusters chained from a starting cluster
     //    into a vector.
     //
-    //    fn read_chain(
-    //        &mut self,
-    //        start: Cluster,
-    //        buf: &mut Vec<u8>
-    //    ) -> io::Result<usize>;
-    //
+    fn read_chain(&mut self, start: Cluster, buf: &mut Vec<u8>) -> io::Result<usize> {
+	unimplemented!("VFat::read_chain()")
+    }
+    
     //  * A method to return a reference to a `FatEntry` for a cluster where the
     //    reference points directly into a cached sector.
     //
-    //    fn fat_entry(&mut self, cluster: Cluster) -> io::Result<&FatEntry>;
+    fn fat_entry(&mut self, cluster: Cluster) -> io::Result<&FatEntry> {
+	unimplemented!("VFat::fat_entry()")
+    }
 }
 
 impl<'a, HANDLE: VFatHandle> FileSystem for &'a HANDLE {

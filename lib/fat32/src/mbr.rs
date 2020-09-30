@@ -9,7 +9,9 @@ const MBR_SECTOR: u64 = 0;
 const MBR_SIZE: usize = size_of::<MasterBootRecord>();
 const VALID_BOOTSEC: u16 = 0xAA55;
 const INACTIVE_PART: u8 = 0x00;
-const ACTIVE_PART: u8 = 0x80;   	
+const ACTIVE_PART: u8 = 0x80;
+const PART_TYPE_1: u8 = 0x0B;
+const PART_TYPE_2: u8 = 0x0C;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -131,16 +133,16 @@ impl MasterBootRecord {
 	Ok(mbr)
     }
 
-    /// returns the first bootable partition in the master boot record
-    /// the file system supports a single partition
+    /// returns the first FAT32 partition in the master boot record
+    /// this file system supports a single partition
     pub fn get_vfat_pte (&mut self) ->  Result<(&PartitionEntry), Error> {
 	let pte_iter = self.pte.iter().enumerate();
 	for (n, pte) in pte_iter {
-	    if pte.boot_indicator == ACTIVE_PART {
+	    if pte.partition_type == PART_TYPE_1 || pte.partition_type == PART_TYPE_2 {
 		return Ok(pte);
 	    }
 	}
-	return Err(Error::Io(io::Error::new(io::ErrorKind::Other, "no bootable partition found")));
+	return Err(Error::Io(io::Error::new(io::ErrorKind::Other, "failed to locate a FAT32 partition")));
     }
 
     /// Verifies the boot indicators of all partition entry conforms to a valid FAT32 value
