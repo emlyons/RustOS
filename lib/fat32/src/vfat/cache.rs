@@ -111,11 +111,11 @@ impl CachedPartition {
 	let mut physical_sector: u64 = 0;
 	    
 	// map logical sector to physical sector
-	let (phys_sector, num_phys) = self.map_sector(sector)?;
+	let (phys_sector_start, num_physical_sectors) = self.map_sector(sector)?;
 
 	// cache from block device
-	for n in 0..num_phys {
-	    self.device.read_all_sector(phys_sector + n, &mut new_entry.data)?;
+	for n in 0..num_physical_sectors {
+	    self.device.read_all_sector(phys_sector_start + n, &mut new_entry.data)?;
 	}	    
 	self.cache.insert(sector, new_entry);
 	Ok(())

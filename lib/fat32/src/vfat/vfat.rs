@@ -68,9 +68,14 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
     //  * A method to read from an offset of a cluster into a buffer.
     //
     pub fn read_cluster(&mut self, cluster: Cluster, offset: usize, buf: &mut [u8]) -> io::Result<usize> {
-
 	if cluster.number() < 2 {
 	    return Err(io::Error::new(io::ErrorKind::Interrupted, "invalid cluster requested"));
+	}
+	match self.fat_entry(cluster)?.status() {
+	    Status::Free | Status::Reserved | Status::Bad  => {
+		return Err(io::Error::new(io::ErrorKind::Interrupted, "invalid cluster requested"));
+	    },
+	    _ => (),
 	}
 		
 	let sectors_in_cluster: usize = self.sectors_per_cluster as usize;
@@ -119,8 +124,7 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	
 	loop {   
 	    
-	    let vfat_entry = self.fat_entry(cluster)?;
-	    let status = vfat_entry.status();
+	    let status = self.fat_entry(cluster)?.status();
 
 	    match status {
 		Status::Free => {
