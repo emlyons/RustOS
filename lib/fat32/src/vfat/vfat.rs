@@ -65,8 +65,6 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	Ok(VFatHandle::new(vfat))	 
     }
 
-    // TODO: The following methods may be useful here:
-    //
     //  * A method to read from an offset of a cluster into a buffer.
     //
     pub fn read_cluster(&mut self, cluster: Cluster, offset: usize, buf: &mut [u8]) -> io::Result<usize> {
@@ -77,20 +75,16 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 		
 	let sectors_in_cluster: usize = self.sectors_per_cluster as usize;
 	let mut buf_remaining: usize = buf.len();
-	let mut buf_loc: usize = 0;
-	
+	let mut buf_loc: usize = 0;	
 	let cluster_start_sector: usize = self.data_start_sector as usize + sectors_in_cluster*(cluster.number() as usize - 2);
 	let start_sector: u64 = (cluster_start_sector + (offset / self.bytes_per_sector as usize)) as u64;
 	let bound_sector: u64 = (cluster_start_sector + sectors_in_cluster) as u64;
-
 	let mut offset: usize = offset % self.bytes_per_sector as usize;
 	
 	for sector in start_sector..bound_sector {
 	    let sector_data = self.device.get(sector)?;
 	    let read_bytes = cmp::min(buf_remaining, self.bytes_per_sector as usize - offset);
-
 	    buf[buf_loc..buf_loc + read_bytes].clone_from_slice(&sector_data[offset..offset + read_bytes]);
-	    
 	    buf_loc += read_bytes;
 	    buf_remaining -= read_bytes;
 	    offset = 0;
@@ -98,55 +92,57 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	Ok(buf_loc)
     }
 
-/*
-    pub fn read_cluster(&mut self, cluster: Cluster, offset: usize, buf: &mut [u8]) -> io::Result<usize> {
+    //  * A method to read an entire cluster and append it to the end of BUF, extending the length of BUF.
+    //
+    fn append_cluster(&mut self, cluster: Cluster, buf: &mut Vec<u8>) -> io::Result<usize> {
 
-	let sectors_in_cluster: usize = self.sectors_per_cluster as usize;
-	let buf_remaining: usize = buf.len();
-	let buf_loc: usize = 0;
-	
-	let cluster_start_sector: usize = self.data_start_sector as usize + sectors_in_cluster*(cluster.number() as usize - 2);
-	let sector_offset: usize = offset / self.bytes_per_sector as usize;
-	let byte_offset: usize = offset % self.bytes_per_sector as usize;
-	let start_sector: usize = cluster_start_sector + sector_offset;
-	let bound_sector: usize = cluster_start_sector + sectors_in_cluster;
+	// extend buf by the length of a cluster
+	let offset = buf.len();
+	let cluster_size = self.bytes_per_sector as usize * self.sectors_per_cluster as usize;	
+	buf.resize(offset + cluster_size, 0);
 
-	eprintln!("\n\n start sector: {} \n\n", sector);
-	for sector in start_sector..bound_sector {
-	    //let sector_data = self.get(sector)?;
-	    // read_bytes = min ( buff_remaining , sector_size - sector_offset)
-	    // read from [sector_offset..sector_offset + read_bytes] to buf_loc
-	
-	    // buf_loc += read_bytes
-	    // buff_remaining -= read_bytes
-	    // offset = 0
-	    eprintln!("\n\n sector: {} \n\n", sector);
-	}
-	panic!();
-	Ok(buf_loc)
+	// read cluster into buf
+	let buf_slice: &mut [u8] = &mut buf.as_mut_slice()[offset..];
+	let read_bytes: usize = self.read_cluster(cluster, 0, buf_slice)?;
+
+	assert_eq!(read_bytes, cluster_size);
+	Ok(read_bytes)
     }
-*/    
 
     //  * A method to read all of the clusters chained from a starting cluster
     //    into a vector.
     //
     fn read_chain(&mut self, start: Cluster, buf: &mut Vec<u8>) -> io::Result<usize> {
 
-	let cluster = start;
-	let FAT_entry = self.fat_entry(cluster);
-
-	loop {
-	    // get FAT entry
-	    // get Cluster
-
-	    // if FAT entry data FAT32
+	let mut bytes_read: usize = 0;
+	let mut cluster = start;
 	
-	    // read all clusters into buffer
+	loop {   
+	    
+	    let vfat_entry = self.fat_entry(cluster)?;
+	    let status = vfat_entry.status();
 
-	    // follow cluster chain	    
+	    match status {
+		Status::Free => {
+		    return Ok(bytes_read);
+		},
+		Status::Reserved => {
+		    return Ok(bytes_read);
+		},
+		Status::Data(next) => {
+		    bytes_read += self.append_cluster(cluster, buf)?;
+		    cluster = next;
+		    continue;
+		},
+		Status::Bad => {
+		    return Err(io::Error::new(io::ErrorKind::Other, "bad cluster in requested cluster chain"));
+		},
+		Status::Eoc(entry) => {
+		    bytes_read += self.append_cluster(cluster, buf)?;
+		    return Ok(bytes_read);
+		},
+	    }
 	}
-	
-	unimplemented!("VFat::read_chain()")
     }
     
     //  * A method to return a reference to a `FatEntry` for a cluster where the
