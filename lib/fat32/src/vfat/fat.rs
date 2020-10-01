@@ -25,7 +25,26 @@ pub struct FatEntry(pub u32);
 impl FatEntry {
     /// Returns the `Status` of the FAT entry `self`.
     pub fn status(&self) -> Status {
-        unimplemented!("FatEntry::status()")
+	
+	match self.0 & 0xFFFFFFF { // 28-bits of FAT entry are used
+	    
+	    // A free, unused cluster
+	    entry if entry == 0 => Free,
+	    
+	    // Reserved
+	    entry if entry == 1 => Reserved,
+	    
+	    // A data cluser; value points to next cluster in chain
+	    entry if (entry >= 2) && (entry <= 0xFFFFFEF) => Data(Cluster::from(entry)),
+	    
+	    // Bad sector in cluster or reserved cluster
+	    entry if entry == 0xFFFFFF7 => Bad,	    
+
+	    // end of chain	    
+	    entry if (entry >= 0xFFFFFF8) && (entry <= 0xFFFFFFF) => Eoc(entry),
+
+	    _ => Bad,
+	}
     }
 }
 
