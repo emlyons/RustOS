@@ -109,6 +109,21 @@ impl Metadata for Dummy {
     fn hidden(&self) -> bool {
         panic!("Dummy")
     }
+    fn system(&self) -> bool {
+        panic!("Dummy")
+    }
+    fn volume_id(&self) -> bool {
+        panic!("Dummy")
+    }
+    fn directory(&self) -> bool {
+        panic!("Dummy")
+    }
+    fn archive(&self) -> bool {
+        panic!("Dummy")
+    }
+    fn lfn(&self) -> bool {
+        panic!("Dummy")
+    }
     fn created(&self) -> Self::Timestamp {
         panic!("Dummy")
     }

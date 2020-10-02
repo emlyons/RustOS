@@ -20,7 +20,7 @@ pub struct CHS {
     sector_cylinder: [u8; 2], // [sector (bits 0:5), cylinder (bits 6:15)]
 }
 
-// FIXME: implement Debug for CHS
+// implement Debug for CHS
 impl fmt::Debug for CHS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("CHS")
@@ -42,7 +42,7 @@ pub struct PartitionEntry {
     pub total_sectors: u32,
 }
 
-// FIXME: implement Debug for PartitionEntry
+// implement Debug for PartitionEntry
 impl fmt::Debug for PartitionEntry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("PartitionEntry")
@@ -67,7 +67,7 @@ pub struct MasterBootRecord {
     signature: u16,
 }
 
-// FIXME: implemente Debug for MaterBootRecord
+// implemente Debug for MaterBootRecord
 impl fmt::Debug for MasterBootRecord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("MasterBootRecord")

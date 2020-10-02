@@ -1,8 +1,19 @@
 use core::fmt;
+use shim::const_assert_size;
 
 use alloc::string::String;
 
 use crate::traits;
+
+pub enum Attribute {
+    READ_ONLY = 0x01,
+    HIDDEN = 0x02,
+    SYSTEM = 0x04,
+    VOLUME_ID = 0x08,
+    DIRECTORY = 0x10,
+    ARCHIVE = 0x20,
+    LFN = 0x0f,
+}
 
 /// A date as represented in FAT32 on-disk structures.
 #[repr(C, packed)]
@@ -28,9 +39,22 @@ pub struct Timestamp {
 
 /// Metadata for a directory entry.
 #[derive(Default, Debug, Clone)]
+#[repr(C, packed)]
 pub struct Metadata {
-    // FIXME: Fill me in.
+    attributes: Attributes,
+    reserved: u8,
+    create_time_tenths: u8,
+    create_time: Time,
+    create_date: Date,
+    access_date: Date,
+    cluster_high: u16,
+    modified_time: Time,
+    modified_date: Date,
+    cluster_low: u16,
+    file_size: u32
 }
+
+const_assert_size!(Metadata, 21);
 
 fn truncate_bits(val: u16, least_sigbit: u16, num_bits: u16) -> u16 {
     assert!(num_bits > 0);
@@ -64,28 +88,116 @@ impl traits::Timestamp for Timestamp {
 	truncate_bits(self.date.0, 0, 5) as u8
     }
 
-    /// 4-bits
+    /// 5-bits
     /// The 24-hour hour. Always in range [0, 24).
     fn hour(&self) -> u8 {
-	truncate_bits(self.date.0, 12, 4) as u8
+	truncate_bits(self.date.0, 11, 5) as u8
     }
 
     /// 6-bits
     /// The minute. Always in range [0, 60).
     fn minute(&self) -> u8 {
-	truncate_bits(self.date.0, 6, 6) as u8
+	truncate_bits(self.date.0, 5, 6) as u8
     }
 
-    /// 6-bits
-    /// The second. Always in range [0, 60).
+    /// 5-bits
+    /// The second. Always in range [0, 60). Seconds are stored as Seconds/2 to compensate for not enough bits.
     fn second(&self) -> u8 {
-	truncate_bits(self.date.0, 0, 6) as u8
+	(truncate_bits(self.date.0, 0, 5) * 2) as u8
     }
 }
 
-// FIXME: Implement `traits::Metadata` for `Metadata`.
+impl traits::Metadata for Metadata {
+    
+    /// Type corresponding to a point in time.
+    type Timestamp = Timestamp;
 
-// FIXME: Implement `fmt::Display` (to your liking) for `Metadata`.
+    
+    /// Whether the associated entry is read only.
+    fn read_only(&self) -> bool {
+	use Attribute::READ_ONLY;
+	(self.attributes.0 & READ_ONLY as u8) == READ_ONLY as u8
+    }
+
+    /// Whether the entry should be "hidden" from directory traversals.
+    fn hidden(&self) -> bool {
+	use Attribute::HIDDEN;
+	(self.attributes.0 & HIDDEN as u8) == HIDDEN as u8
+    }
+
+    /// Whether the entry is a system file entry.
+    fn system(&self) -> bool {
+	use Attribute::SYSTEM;
+	(self.attributes.0 & SYSTEM as u8) == SYSTEM as u8
+    }
+
+    /// Whether the entry is a volume ID entry.
+    fn volume_id(&self) -> bool {
+	use Attribute::VOLUME_ID;
+	(self.attributes.0 & VOLUME_ID as u8) == VOLUME_ID as u8
+    }
+
+    /// Whether the entry is another directory.
+    fn directory(&self) -> bool {
+	use Attribute::DIRECTORY;
+	(self.attributes.0 & DIRECTORY as u8) == DIRECTORY as u8
+    }
+
+    /// Whether the entry is an archive.
+    fn archive(&self) -> bool {
+	use Attribute::ARCHIVE;
+	(self.attributes.0 & ARCHIVE as u8) == ARCHIVE as u8
+    }
+
+    /// Whether the entry is a 'long file name' (LFN) entry.
+    fn lfn(&self) -> bool {
+	use Attribute::LFN;
+	self.attributes.0 == LFN as u8
+    }
+
+    /// The timestamp when the entry was created.
+    fn created(&self) -> Self::Timestamp {
+	Timestamp {
+	    date: self.create_date,
+	    time: self.create_time,
+	}
+    }
+
+    /// The timestamp for the entry's last access.
+    fn accessed(&self) -> Self::Timestamp {
+	Timestamp {
+	    date: self.access_date,
+	    time: Time(0),
+	}
+    }
+
+    /// The timestamp for the entry's last modification.
+    fn modified(&self) -> Self::Timestamp {
+	Timestamp {
+	    date: self.modified_date,
+	    time: self.modified_time,
+	}
+    }
+}
+
+// Implement `fmt::Display` (to your liking) for `Metadata`.
+impl fmt::Debug for Metadata {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Metadata")
+            .field("attributes", &self.attribute.0)
+            .field("create time (tenths of seconds)", &self.create_time_tenths)
+	    .field("create time", &self.create_time.0)
+	    .field("create date", &self.create_date.0)
+	    .field("access date", &self.access_date.0)
+	    .field("cluster address high 16-bits", &self.cluster_high)
+	    .field("modified time", &self.modified_time.0)
+	    .field("", &self.modified_date.0)
+	    .field("", &self.)
+	    .field("", &self.)
+	    .field("", &self.)
+            .finish()
+    }
+}
 
 #[cfg(test)]
 mod tests {

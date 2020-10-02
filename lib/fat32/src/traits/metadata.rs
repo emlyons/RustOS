@@ -34,6 +34,21 @@ pub trait Metadata: Sized {
     /// Whether the entry should be "hidden" from directory traversals.
     fn hidden(&self) -> bool;
 
+    /// Whether the entry is a system file entry.
+    fn system(&self) -> bool;
+
+    /// Whether the entry is a volume ID entry.
+    fn volume_id(&self) -> bool;
+    
+    /// Whether the entry is another directory.
+    fn directory(&self) -> bool;
+
+    /// Whether the entry is an archive.
+    fn archive(&self) -> bool;
+
+    /// Whether the entry is a 'long file name' (LFN) entry.
+    fn lfn(&self) -> bool;
+
     /// The timestamp when the entry was created.
     fn created(&self) -> Self::Timestamp;
 
