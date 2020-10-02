@@ -20,18 +20,37 @@ pub struct Dir<HANDLE: VFatHandle> {
 #[repr(C, packed)]
 #[derive(Copy, Clone)]
 pub struct VFatRegularDirEntry {
-    // FIXME: Fill me in.
+    file_name: [u8; 8],
+    file_extension: [u8; 3],
+    attributes: u8,
+    reserved: u8,
+    create_time_tenths: u8,
+    create_time: u16,
+    create_date: u16,
+    access_date: u16,
+    cluster_high: u16,
+    mod_time: u16,
+    mod_date: u16,
+    cluster_low: u16,
+    file_size: u32,
 }
 
-//const_assert_size!(VFatRegularDirEntry, 32);
+const_assert_size!(VFatRegularDirEntry, 32);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone)]
 pub struct VFatLfnDirEntry {
-    // FIXME: Fill me in.
+    sequence_number: u8,
+    name_characters: [u8; 10],
+    attributes: u8,
+    entry_type: u8,
+    checksum: u8,
+    name_characters_second: [u8; 12],
+    reserved: [u8; 2],
+    name_characters_third: [u8; 4],
 }
 
-//const_assert_size!(VFatLfnDirEntry, 32);
+const_assert_size!(VFatLfnDirEntry, 32);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone)]
