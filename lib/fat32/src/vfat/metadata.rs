@@ -38,7 +38,7 @@ pub struct Timestamp {
 }
 
 /// Metadata for a directory entry.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Clone)]
 #[repr(C, packed)]
 pub struct Metadata {
     attributes: Attributes,
@@ -184,17 +184,16 @@ impl traits::Metadata for Metadata {
 impl fmt::Debug for Metadata {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Metadata")
-            .field("attributes", &self.attribute.0)
+            .field("attributes", &self.attributes.0)
             .field("create time (tenths of seconds)", &self.create_time_tenths)
 	    .field("create time", &self.create_time.0)
 	    .field("create date", &self.create_date.0)
 	    .field("access date", &self.access_date.0)
 	    .field("cluster address high 16-bits", &self.cluster_high)
 	    .field("modified time", &self.modified_time.0)
-	    .field("", &self.modified_date.0)
-	    .field("", &self.)
-	    .field("", &self.)
-	    .field("", &self.)
+	    .field("modified date", &self.modified_date.0)
+	    .field("cluster address low 16-bits", &self.cluster_low)
+	    .field("file size (bytes):", &self.file_size)
             .finish()
     }
 }
