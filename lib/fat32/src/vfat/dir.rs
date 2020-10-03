@@ -15,6 +15,9 @@ use crate::vfat::{Cluster, Entry, File, VFatHandle};
 pub struct Dir<HANDLE: VFatHandle> {
     pub vfat: HANDLE,
     // FIXME: Fill me in.
+    pub first_cluster: Cluster,
+    pub metadata: Metadata,
+    pub name: String,
 }
 
 #[repr(C, packed)]
@@ -64,6 +67,19 @@ pub union VFatDirEntry {
     unknown: VFatUnknownDirEntry,
     regular: VFatRegularDirEntry,
     long_filename: VFatLfnDirEntry,
+}
+
+impl <HANDLE: VFatHandle> traits::Dir for Dir <HANDLE> {
+    /// The type of entry stored in this directory.
+    type Entry = traits::Dummy;
+
+    /// A type that is an iterator over the entries in this directory.
+    type Iter = traits::Dummy;//Iterator<Item = Self::Entry>;
+
+    /// Returns an interator over the entries in this directory.
+    fn entries(&self) -> io::Result<Self::Iter> {
+	Err(io::Error::new(io::ErrorKind::Interrupted, "invalid cluster requested"))
+    }
 }
 
 impl<HANDLE: VFatHandle> Dir<HANDLE> {
