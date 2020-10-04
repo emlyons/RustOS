@@ -95,10 +95,10 @@ pub struct Metadata {
     create_time: Time,
     create_date: Date,
     access_date: Date,
-    cluster_high: u16,
+    pub cluster_high: u16,
     modified_time: Time,
     modified_date: Date,
-    cluster_low: u16,
+    pub cluster_low: u16,
     file_size: u32
 }
 

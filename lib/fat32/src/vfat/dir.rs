@@ -122,10 +122,9 @@ impl<HANDLE: VFatHandle> Dir<HANDLE> {
 }
 
 pub struct DirIterator<HANDLE: VFatHandle> {
-    phantom: PhantomData<HANDLE>,
+    vfat: HANDLE,
     entries: Vec::<VFatDirEntry>,
     entry_offset: usize,
-    // TODO: fields of iterator
 }
 
 impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
@@ -141,15 +140,24 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 		&self.entries[self.entry_offset].regular
 	};
 	let name = entry.name();
-
-	let x = entry.metadata.attributes;
+	let cluster = Cluster::from((entry.metadata.cluster_high as u32) << 16 + entry.metadata.cluster_low as u32);
 	
 	if entry.metadata.attributes.directory() {
-	    //Let Entry::_Dir()
-	//}
-	//else
-	//{
-	    //Let Entry::_File()
+	    let dir_entry = Entry::_Dir(Dir {
+	        vfat: self.vfat.clone(),
+		start_cluster: cluster,
+		metadata: entry.metadata,
+		name: entry.name()
+	    });
+	    return Some(dir_entry);
+	}
+	else {
+	    let file_entry = Entry::_File(File {
+	        vfat: self.vfat.clone(),
+		metadata: entry.metadata,
+		name: entry.name()
+	    });
+	    return Some(file_entry);
 	}
 	None
     }
@@ -226,6 +234,6 @@ impl <HANDLE: VFatHandle> traits::Dir for Dir<HANDLE> {
 	    entries.set_len(num_entries);
 	}
 	
-	Ok(DirIterator::<HANDLE>{ phantom: PhantomData, entries: entries, entry_offset: 0})
+	Ok(DirIterator::<HANDLE>{ vfat: self.vfat.clone(), entries: entries, entry_offset: 0})
     }
 }
