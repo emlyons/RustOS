@@ -46,13 +46,24 @@ const_assert_size!(VFatRegularDirEntry, 32);
 #[derive(Copy, Clone)]
 pub struct VFatLfnDirEntry {
     sequence_number: u8,
-    name_characters: [u8; 10],
+    name_chars: [u16; 5],
     attributes: Attributes,
     entry_type: u8,
     checksum: u8,
-    name_characters_second: [u8; 12],
+    name_chars_second: [u16; 6],
     reserved: [u8; 2],
-    name_characters_third: [u8; 4],
+    name_chars_third: [u16; 2],
+}
+
+impl VFatLfnDirEntry {
+    fn name(&self) -> String {
+	let mut name: Vec<u16> = Vec::new();
+	name.extend_from_slice(&self.name_chars);
+	name.extend_from_slice(&self.name_chars_second);
+	name.extend_from_slice(&self.name_chars_third);
+	assert_eq!(name.len(), 10 + 12 + 4);
+	String::from_utf16(&name).unwrap()
+    }
 }
 
 const_assert_size!(VFatLfnDirEntry, 32);
@@ -93,7 +104,7 @@ impl<HANDLE: VFatHandle> Dir<HANDLE> {
 pub struct DirIterator<HANDLE: VFatHandle> {
     phantom: PhantomData<HANDLE>,
     entries: Vec::<VFatDirEntry>,
-    curr_index: usize,
+    entry_offset: usize,
     // TODO: fields of iterator
 }
 
@@ -101,11 +112,35 @@ impl <HANDLE: VFatHandle> Iterator for DirIterator<HANDLE> {
     type Item = Entry<HANDLE>;
     
     fn next(&mut self) -> Option<Self::Item> {
-	None
-	// ITERATE!
-	// parse entry as 'curr_index'
-	// increment curr_index
-	// return entry
+	// end of directory
+	if !(self.entry_offset < self.entries.len()) {
+	    return None;
+	}
+	// determine type of entry
+	let mut unknown_entry: &VFatUnknownDirEntry = unsafe {
+	    &self.entries[self.entry_offset].unknown
+	};
+	// what kind of entry? -> VFatUnknownDirEntry
+
+	// while LFN
+	// cast to entry: VFatLfnDirEntry
+	// if too small resize file_name to seq_num * (26 bytes/13 UCS-2 char)
+	// entry_index = (seq_num - 1)*26
+	// file_name.insert_str(entry_index, &entry.name());
+
+	
+	// self.entry_offset += 1;
+	// entry = self.entries[self.entry_offset];
+	
+	// END while
+	
+	// Regular Directory Entry
+	// cast to VFatRegularDirEntry
+
+	// CREATE Entry(_File(File<HANDLE>)
+	//     or Entry(_Fir(File<HANDLE>)
+	
+	return None;
     }
 }
 
@@ -132,6 +167,6 @@ impl <HANDLE: VFatHandle> traits::Dir for Dir<HANDLE> {
 	    entries.set_len(num_entries);
 	}
 	
-	Ok(DirIterator::<HANDLE>{ phantom: PhantomData, entries: entries, curr_index: 0})
+	Ok(DirIterator::<HANDLE>{ phantom: PhantomData, entries: entries, entry_offset: 0})
     }
 }
