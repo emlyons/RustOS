@@ -83,7 +83,3 @@ impl <HANDLE: VFatHandle> traits::Entry for Entry<HANDLE> {
         self.as_dir().is_some()
     }
 }
-
-// DEBUG impl<HANDLE: VFatHandle> traits::Entry for Entry<HANDLE> {
-    // FIXME: Implement `traits::Entry` for `Entry`.
-//}
