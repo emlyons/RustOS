@@ -27,17 +27,28 @@ pub struct Dir<HANDLE: VFatHandle> {
 pub struct VFatRegularDirEntry {
     file_name: [u8; 8],
     file_extension: [u8; 3],
-    attributes: Attributes,
-    reserved: u8,
-    create_time_tenths: u8,
-    create_time: u16,
-    create_date: u16,
-    access_date: u16,
-    cluster_high: u16,
-    mod_time: u16,
-    mod_date: u16,
-    cluster_low: u16,
-    file_size: u32,
+    metadata: Metadata
+}
+
+impl VFatRegularDirEntry {
+    fn name(&self) -> String {
+	let mut name: Vec<u8> = Vec::new();
+	name.extend_from_slice(&self.file_name);
+	if (self.file_extension[0] != 0x00 || self.file_extension[0] != 0x20) {
+	    name.push('.' as u8);
+	    name.extend_from_slice(&self.file_extension);
+	}
+	let mut name_string = String::from_utf8(name).unwrap();
+	
+	// check for termination characters
+	if let Some(term_index) = name_string.find(0x00 as char){
+	    name_string.truncate(term_index);
+	}
+	if let Some(term_index) = name_string.find(0x20 as char){
+	    name_string.truncate(term_index);
+	}
+	return name_string;
+    }
 }
 
 const_assert_size!(VFatRegularDirEntry, 32);
@@ -62,7 +73,16 @@ impl VFatLfnDirEntry {
 	name.extend_from_slice(&self.name_chars_second);
 	name.extend_from_slice(&self.name_chars_third);
 	assert_eq!(name.len(), 10 + 12 + 4);
-	String::from_utf16(&name).unwrap()
+	let mut name_string = String::from_utf16(&name).unwrap();
+
+	// check for termination characters
+	if let Some(term_index) = name_string.find(0x00 as char){
+	    name_string.truncate(term_index);
+	}
+	if let Some(term_index) = name_string.find(0xFF as char){
+	    name_string.truncate(term_index);
+	}
+	return name_string;
     }
 }
 
@@ -108,20 +128,59 @@ pub struct DirIterator<HANDLE: VFatHandle> {
     // TODO: fields of iterator
 }
 
+impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
+    fn parse_lfn(&self) -> Option<Entry<HANDLE>> {
+	let mut entry: &VFatLfnDirEntry = unsafe {
+		&self.entries[self.entry_offset].long_filename
+	};
+	None
+    }
+
+    fn parse_reg(&self) -> Option<Entry<HANDLE>> {
+	let mut entry: &VFatRegularDirEntry = unsafe {
+		&self.entries[self.entry_offset].regular
+	};
+	let name = entry.name();
+
+	let x = entry.metadata.attributes;
+	
+	if entry.metadata.attributes.directory() {
+	    //Let Entry::_Dir()
+	//}
+	//else
+	//{
+	    //Let Entry::_File()
+	}
+	None
+    }
+}
+
 impl <HANDLE: VFatHandle> Iterator for DirIterator<HANDLE> {
     type Item = Entry<HANDLE>;
+
+    
     
     fn next(&mut self) -> Option<Self::Item> {
 	// end of directory
-	if !(self.entry_offset < self.entries.len()) {
-	    return None;
-	}
-	// determine type of entry
-	let mut unknown_entry: &VFatUnknownDirEntry = unsafe {
-	    &self.entries[self.entry_offset].unknown
-	};
-	// what kind of entry? -> VFatUnknownDirEntry
+	while (self.entry_offset < self.entries.len()) {
 
+	    // determine type of entry
+	    let mut unknown_entry: &VFatUnknownDirEntry = unsafe {
+		&self.entries[self.entry_offset].unknown
+	    };
+	    // attempt to parse entry
+	    if let Some(entry) = {
+		if unknown_entry.attributes.lfn() {
+		    self.parse_lfn()
+		} else {
+		    self.parse_reg()
+		}
+	    } {
+		// return parsed entry or continue to next entry...
+		return Some(entry);
+	    }	 
+	}
+	return None;
 	// while LFN
 	// cast to entry: VFatLfnDirEntry
 	// if too small resize file_name to seq_num * (26 bytes/13 UCS-2 char)
@@ -140,7 +199,7 @@ impl <HANDLE: VFatHandle> Iterator for DirIterator<HANDLE> {
 	// CREATE Entry(_File(File<HANDLE>)
 	//     or Entry(_Fir(File<HANDLE>)
 	
-	return None;
+	
     }
 }
 

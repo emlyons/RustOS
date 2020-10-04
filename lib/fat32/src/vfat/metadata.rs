@@ -30,6 +30,54 @@ pub struct Time(u16);
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Attributes(u8);
 
+enum attr {
+    READ_ONLY = 0x01,
+    HIDDEN = 0x02,
+    SYSTEM = 0x04,
+    VOLUME_ID = 0x08,
+    DIRECTORY = 0x10,
+    ARCHIVE = 0x20,
+    LFN = 0x0f,
+}
+
+impl Attributes {
+    
+    /// Whether the associated entry is read only.
+    pub fn read_only(&self) -> bool {
+	(self.0 & attr::READ_ONLY as u8) == attr::READ_ONLY as u8
+    }
+
+    /// Whether the entry should be "hidden" from directory traversals.
+    pub fn hidden(&self) -> bool {
+	(self.0 & attr::HIDDEN as u8) == attr::HIDDEN as u8
+    }
+
+    /// Whether the entry is a system file entry.
+    pub fn system(&self) -> bool {
+	(self.0 & attr::SYSTEM as u8) == attr::SYSTEM as u8
+    }
+
+    /// Whether the entry is a volume ID entry.
+    pub fn volume_id(&self) -> bool {
+	(self.0 & attr::VOLUME_ID as u8) == attr::VOLUME_ID as u8
+    }
+
+    /// Whether the entry is another directory.
+    pub fn directory(&self) -> bool {
+	(self.0 & attr::DIRECTORY as u8) == attr::DIRECTORY as u8
+    }
+
+    /// Whether the entry is an archive.
+    pub fn archive(&self) -> bool {
+	(self.0 & attr::ARCHIVE as u8) == attr::ARCHIVE as u8
+    }
+
+    /// Whether the entry is a 'long file name' (LFN) entry.
+    pub fn lfn(&self) -> bool {
+	self.0 == attr::LFN as u8
+    }
+}
+
 /// A structure containing a date and time.
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Timestamp {
@@ -38,10 +86,10 @@ pub struct Timestamp {
 }
 
 /// Metadata for a directory entry.
-#[derive(Default, Clone)]
+#[derive(Default, Copy, Clone)]
 #[repr(C, packed)]
 pub struct Metadata {
-    attributes: Attributes,
+    pub(super) attributes: Attributes,
     reserved: u8,
     create_time_tenths: u8,
     create_time: Time,
@@ -115,44 +163,37 @@ impl traits::Metadata for Metadata {
     
     /// Whether the associated entry is read only.
     fn read_only(&self) -> bool {
-	use Attribute::READ_ONLY;
-	(self.attributes.0 & READ_ONLY as u8) == READ_ONLY as u8
+	self.attributes.read_only()
     }
 
     /// Whether the entry should be "hidden" from directory traversals.
     fn hidden(&self) -> bool {
-	use Attribute::HIDDEN;
-	(self.attributes.0 & HIDDEN as u8) == HIDDEN as u8
+	self.attributes.hidden()
     }
 
     /// Whether the entry is a system file entry.
     fn system(&self) -> bool {
-	use Attribute::SYSTEM;
-	(self.attributes.0 & SYSTEM as u8) == SYSTEM as u8
+	self.attributes.system()
     }
 
     /// Whether the entry is a volume ID entry.
     fn volume_id(&self) -> bool {
-	use Attribute::VOLUME_ID;
-	(self.attributes.0 & VOLUME_ID as u8) == VOLUME_ID as u8
+	self.attributes.volume_id()
     }
 
     /// Whether the entry is another directory.
     fn directory(&self) -> bool {
-	use Attribute::DIRECTORY;
-	(self.attributes.0 & DIRECTORY as u8) == DIRECTORY as u8
+	self.attributes.directory()
     }
 
     /// Whether the entry is an archive.
     fn archive(&self) -> bool {
-	use Attribute::ARCHIVE;
-	(self.attributes.0 & ARCHIVE as u8) == ARCHIVE as u8
+	self.attributes.archive()
     }
 
     /// Whether the entry is a 'long file name' (LFN) entry.
     fn lfn(&self) -> bool {
-	use Attribute::LFN;
-	self.attributes.0 == LFN as u8
+	self.attributes.lfn()
     }
 
     /// The timestamp when the entry was created.
