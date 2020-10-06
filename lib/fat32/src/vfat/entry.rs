@@ -24,8 +24,8 @@ impl <HANDLE: VFatHandle> traits::Entry for Entry<HANDLE> {
     /// The name of the file or directory corresponding to this entry.
     fn name(&self) -> &str {
 	match self {
-	    &Entry::_File(ref file) => &file.name,
-	    &Entry::_Dir(ref dir) => &dir.name,
+	    &Entry::_File(ref file) => &file.name(),
+	    &Entry::_Dir(ref dir) => &dir.name(),
 	}
     }
 

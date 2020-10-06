@@ -19,7 +19,8 @@ pub struct Dir<HANDLE: VFatHandle> {
     pub vfat: HANDLE,
     pub start_cluster: Cluster,
     pub metadata: Metadata,
-    pub name: String,
+    pub short_name: String,
+    pub long_name: String,
 }
 
 #[repr(C, packed)]
@@ -117,7 +118,29 @@ impl<HANDLE: VFatHandle> Dir<HANDLE> {
     /// If `name` contains invalid UTF-8 characters, an error of `InvalidInput`
     /// is returned.
     pub fn find<P: AsRef<OsStr>>(&self, name: P) -> io::Result<Entry<HANDLE>> {
-        unimplemented!("Dir::find()")
+	use traits::{Dir, Entry};
+	let lowercase_name = {
+	    match name.as_ref().to_str() {
+		Some(name) => name.to_lowercase(),
+		None => {return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid name"))},
+	    }
+	};
+	for entry in self.entries()? {
+	    if entry.name().to_lowercase() == lowercase_name {
+		return Ok(entry);
+	    }
+	}
+	Err(io::Error::new(io::ErrorKind::NotFound, "entry not found"))
+    }
+
+    /// Returns the name of the current directory
+    pub fn name(&self) -> &str {
+	if self.long_name.is_empty() {
+	    &self.short_name
+	}
+	else {
+	    &self.long_name
+	}
     }
 }
 
@@ -128,17 +151,55 @@ pub struct DirIterator<HANDLE: VFatHandle> {
 }
 
 impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
-    fn parse_lfn(&self) -> Option<Entry<HANDLE>> {
-	let mut entry: &VFatLfnDirEntry = unsafe {
-		&self.entries[self.entry_offset].long_filename
-	};
-	None
+    /// Parses a long file name entry sequence
+    /// Iterates on all LFN entries and builds long file name as well as the regular directory entry
+    /// Returns the associated type (File or Directory)
+    fn parse_lfn(&mut self) -> Option<Entry<HANDLE>> {
+
+	let mut vec_name: Vec<String> = Vec::new();
+
+	// iterate through all LFN entries
+	while (unsafe {self.entries[self.entry_offset].unknown.attributes.lfn()}) {
+	    let mut lfn_entry: &VFatLfnDirEntry = unsafe {&self.entries[self.entry_offset].long_filename};
+
+	    // sequence: 0 ... 19
+	    let seq_num: usize = ((lfn_entry.sequence_number & 0x1F) - 1) as usize;
+	    assert!(seq_num < 20);
+
+	    // extend vec_name to hold all lfn entries
+	    if seq_num >= vec_name.len() {
+		vec_name.resize(seq_num + 1, String::from(""));
+	    }
+
+	    vec_name.insert(seq_num, lfn_entry.name());
+
+	    // go to next entry
+	    self.entry_offset += 1;
+	}
+
+	self.parse_reg(vec_name.join(""))
     }
 
-    fn parse_reg(&self) -> Option<Entry<HANDLE>> {
+    /// Parses a regular directory entry and returns the associated type (File or Directory)
+    fn parse_reg(&mut self, long_name: String) -> Option<Entry<HANDLE>> {
 	let mut entry: &VFatRegularDirEntry = unsafe {
 		&self.entries[self.entry_offset].regular
 	};
+
+	// end of directory
+	if entry.file_name[0] == 0x00 {
+	    self.entry_offset = self.entries.len();
+	    return None;
+	}
+    
+	// increment iterator
+	self.entry_offset += 1;
+
+	// deleted entry
+	if (entry.file_name[0] == 0xE5 || entry.file_name[0] == 0x00) {
+	    return None;
+	}
+
 	let name = entry.name();
 	let cluster = Cluster::from((entry.metadata.cluster_high as u32) << 16 + entry.metadata.cluster_low as u32);
 	
@@ -147,7 +208,8 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 	        vfat: self.vfat.clone(),
 		start_cluster: cluster,
 		metadata: entry.metadata,
-		name: entry.name()
+		short_name: entry.name(),
+		long_name: long_name,
 	    });
 	    return Some(dir_entry);
 	}
@@ -155,7 +217,8 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 	    let file_entry = Entry::_File(File {
 	        vfat: self.vfat.clone(),
 		metadata: entry.metadata,
-		name: entry.name()
+		short_name: entry.name(),
+		long_name: long_name,
 	    });
 	    return Some(file_entry);
 	}
@@ -164,9 +227,7 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 }
 
 impl <HANDLE: VFatHandle> Iterator for DirIterator<HANDLE> {
-    type Item = Entry<HANDLE>;
-
-    
+    type Item = Entry<HANDLE>;  
     
     fn next(&mut self) -> Option<Self::Item> {
 	// end of directory
@@ -181,7 +242,7 @@ impl <HANDLE: VFatHandle> Iterator for DirIterator<HANDLE> {
 		if unknown_entry.attributes.lfn() {
 		    self.parse_lfn()
 		} else {
-		    self.parse_reg()
+		    self.parse_reg(String::from(""))
 		}
 	    } {
 		// return parsed entry or continue to next entry...
@@ -189,25 +250,6 @@ impl <HANDLE: VFatHandle> Iterator for DirIterator<HANDLE> {
 	    }	 
 	}
 	return None;
-	// while LFN
-	// cast to entry: VFatLfnDirEntry
-	// if too small resize file_name to seq_num * (26 bytes/13 UCS-2 char)
-	// entry_index = (seq_num - 1)*26
-	// file_name.insert_str(entry_index, &entry.name());
-
-	
-	// self.entry_offset += 1;
-	// entry = self.entries[self.entry_offset];
-	
-	// END while
-	
-	// Regular Directory Entry
-	// cast to VFatRegularDirEntry
-
-	// CREATE Entry(_File(File<HANDLE>)
-	//     or Entry(_Fir(File<HANDLE>)
-	
-	
     }
 }
 

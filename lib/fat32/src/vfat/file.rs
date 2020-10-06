@@ -10,7 +10,21 @@ pub struct File<HANDLE: VFatHandle> {
     pub vfat: HANDLE,
     // FIXME: Fill me in.
     pub metadata: Metadata,
-    pub name: String,
+    pub short_name: String,
+    pub long_name: String,
+}
+
+impl <HANDLE:VFatHandle> File<HANDLE> {
+
+    /// Returns the name of the current file
+    pub fn name(&self) -> &str {
+	if self.long_name.is_empty() {
+	    &self.short_name
+	}
+	else {
+	    &self.long_name
+	}
+    }
 }
 
 // FIXME: Implement `traits::File` (and its supertraits) for `File`.
