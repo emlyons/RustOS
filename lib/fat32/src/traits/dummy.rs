@@ -133,4 +133,10 @@ impl Metadata for Dummy {
     fn modified(&self) -> Self::Timestamp {
         panic!("Dummy")
     }
+    fn cluster(&self) -> u32 {
+	panic!("Dummy")
+    }
+    fn file_size(&self) -> u32 {
+	panic!("Dummy")
+    }
 }

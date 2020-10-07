@@ -17,7 +17,8 @@ use crate::vfat::{Cluster, Entry, File, VFatHandle};
 #[derive(Debug)]
 pub struct Dir<HANDLE: VFatHandle> {
     pub vfat: HANDLE,
-    pub start_cluster: Cluster,
+    pub cluster: Cluster,
+    pub size: u32,
     pub metadata: Metadata,
     pub short_name: String,
     pub long_name: String,
@@ -182,6 +183,8 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 
     /// Parses a regular directory entry and returns the associated type (File or Directory)
     fn parse_reg(&mut self, long_name: String) -> Option<Entry<HANDLE>> {
+	use traits::Metadata;
+	
 	let mut entry: &VFatRegularDirEntry = unsafe {
 		&self.entries[self.entry_offset].regular
 	};
@@ -201,12 +204,12 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 	}
 
 	let name = entry.name();
-	let cluster = Cluster::from((entry.metadata.cluster_high as u32) << 16 + entry.metadata.cluster_low as u32);
 	
 	if entry.metadata.attributes.directory() {
 	    let dir_entry = Entry::_Dir(Dir {
 	        vfat: self.vfat.clone(),
-		start_cluster: cluster,
+		cluster: Cluster::from(entry.metadata.cluster()),
+		size: entry.metadata.file_size(),
 		metadata: entry.metadata,
 		short_name: entry.name(),
 		long_name: long_name,
@@ -216,6 +219,10 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 	else {
 	    let file_entry = Entry::_File(File {
 	        vfat: self.vfat.clone(),
+		cluster: Cluster::from(entry.metadata.cluster()),
+		current_cluster: Cluster::from(entry.metadata.cluster()),
+		position: 0,
+		size: entry.metadata.file_size(),
 		metadata: entry.metadata,
 		short_name: entry.name(),
 		long_name: long_name,
@@ -265,7 +272,7 @@ impl <HANDLE: VFatHandle> traits::Dir for Dir<HANDLE> {
 
 	// read in all of directory
 	let mut raw: Vec<u8> = Vec::new();
-	let size = self.vfat.lock(|v| v.read_chain(Cluster::from(self.start_cluster), &mut raw))?;
+	let size = self.vfat.lock(|v| v.read_chain(self.cluster, &mut raw))?;
 
 	// unsafe cast to Vec::<VFatDirEntry>
 	let num_entries = raw.len() / size_of::<VFatDirEntry>();

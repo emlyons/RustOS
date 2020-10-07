@@ -36,6 +36,7 @@ pub struct VFat<HANDLE: VFatHandle> {
 }
 
 impl<HANDLE: VFatHandle> VFat<HANDLE> {
+   
     pub fn from<T>(mut device: T) -> Result<HANDLE, Error>
     where
         T: BlockDevice + 'static,
@@ -63,6 +64,25 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	};
 
 	Ok(VFatHandle::new(vfat))	 
+    }
+
+    /// Size of a cluster in bytes
+    pub fn cluster_size(&mut self) -> u32 {
+	self.sectors_per_cluster as u32 * self.bytes_per_sector as u32
+    }
+
+    /// returns the next cluster in the chain. If cluster if last in chain return Err
+    pub fn next_cluster(&mut self, cluster: Cluster) -> io::Result<Cluster> {
+	let fat_entry = self.fat_entry(cluster)?;
+	match fat_entry.status() {
+	    Status::Data(next) => Ok(next),
+	    _ => Err(io::Error::new(io::ErrorKind::Interrupted, "no next cluster")),
+	}
+    }
+
+    /// find the cluster at where the byte OFFSET is stored
+    pub fn find_cluster(&mut self, offset: usize) -> io::Result<Cluster> {
+	unimplemented!("find_cluster")
     }
 
     //  * A method to read from an offset of a cluster into a buffer.

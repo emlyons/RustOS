@@ -95,10 +95,10 @@ pub struct Metadata {
     create_time: Time,
     create_date: Date,
     access_date: Date,
-    pub cluster_high: u16,
+    cluster_high: u16,
     modified_time: Time,
     modified_date: Date,
-    pub cluster_low: u16,
+    cluster_low: u16,
     file_size: u32
 }
 
@@ -218,6 +218,16 @@ impl traits::Metadata for Metadata {
 	    date: self.modified_date,
 	    time: self.modified_time,
 	}
+    }
+
+    /// The file's first cluster
+    fn cluster(&self) -> u32 {
+	((self.cluster_high as u32) << 16) + (self.cluster_low as u32)
+    }
+
+    /// The file's size in bytes
+    fn file_size(&self) -> u32 {
+	self.file_size
     }
 }
 
