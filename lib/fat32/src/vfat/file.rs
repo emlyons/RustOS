@@ -99,11 +99,15 @@ impl<HANDLE: VFatHandle> io::Seek for File<HANDLE> {
 	}
 	let pos = long_pos as u32;
 
-	let bytes_per_cluster = self.vfat.lock(|v| v.cluster_size());	
-	let start_of_next_cluster = self.position + (bytes_per_cluster - self.position % bytes_per_cluster);
+	let bytes_per_cluster = self.vfat.lock(|v| v.cluster_size());
+	let start_of_current_cluster = self.position - (self.position % bytes_per_cluster);
+	let start_of_next_cluster = self.position + (bytes_per_cluster - (self.position % bytes_per_cluster));
 	let end_of_next_cluster = start_of_next_cluster + bytes_per_cluster - 1;
 
-	if start_of_next_cluster <= pos && pos <= end_of_next_cluster {
+
+	if start_of_current_cluster <= pos && pos < start_of_next_cluster {
+	    // same cluster
+	} else if start_of_next_cluster <= pos && pos <= end_of_next_cluster {
 	    // if next cluster in sequence, do a fast get
 	    self.current_cluster = self.vfat.lock(|v| v.next_cluster(self.current_cluster))?;
 	}
