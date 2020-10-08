@@ -32,7 +32,7 @@ pub struct VFat<HANDLE: VFatHandle> {
     sectors_per_fat: u32,
     fat_start_sector: u64,
     data_start_sector: u64,
-    rootdir_cluster: Cluster,
+    root_cluster: Cluster,
 }
 
 impl<HANDLE: VFatHandle> VFat<HANDLE> {
@@ -60,7 +60,7 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	    sectors_per_fat: ebpb.sector_per_FAT_alt,
 	    fat_start_sector: pte.relative_sector as u64 + ebpb.reserved_sector as u64,
 	    data_start_sector: pte.relative_sector as u64 + ebpb.reserved_sector as u64 + ebpb.sector_per_FAT_alt as u64 * ebpb.num_FAT as u64,
-	    rootdir_cluster: Cluster::from(ebpb.root_cluster),
+	    root_cluster: Cluster::from(ebpb.root_cluster),
 	};
 
 	Ok(VFatHandle::new(vfat))	 
@@ -69,6 +69,10 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
     /// Size of a cluster in bytes
     pub fn cluster_size(&mut self) -> u32 {
 	self.sectors_per_cluster as u32 * self.bytes_per_sector as u32
+    }
+
+    pub fn root_cluster(&mut self) -> Cluster {
+	self.root_cluster
     }
 
     /// returns the next cluster in the chain. If cluster if last in chain return Err
@@ -80,9 +84,15 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	}
     }
 
-    /// find the cluster at where the byte OFFSET is stored
-    pub fn find_cluster(&mut self, offset: usize) -> io::Result<Cluster> {
-	unimplemented!("find_cluster")
+    /// find the cluster in dir/file starting at ROOT_CLUSTER where the byte OFFSET is stored
+    /// runs in O(N)
+    pub fn find_cluster(&mut self, root_cluster: Cluster, offset: usize) -> io::Result<Cluster> {
+	let cluster_num = offset / self.cluster_size() as usize;
+	let mut cluster: Cluster = root_cluster;
+	for n in 0..cluster_num {
+	    cluster = self.next_cluster(cluster)?;
+	}
+	Ok(cluster)
     }
 
     //  * A method to read from an offset of a cluster into a buffer.
@@ -191,12 +201,31 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 }
 
 impl<'a, HANDLE: VFatHandle> FileSystem for &'a HANDLE {
-    type File = crate::traits::Dummy;
-    type Dir = crate::traits::Dummy;
-    type Entry = crate::traits::Dummy;
+    type File = File<HANDLE>;
+    type Dir = Dir<HANDLE>;
+    type Entry = Entry<HANDLE>;
 
     fn open<P: AsRef<Path>>(self, path: P) -> io::Result<Self::Entry> {
-        unimplemented!("FileSystem::open()")
+	// parse path into components..
+	let curr_dir = Dir::root(self);
+
+	// set current_dir to ROOT DIRECTORY
+	// set current_component to first component parsed from PATH
+	
+	// iterate through last component parsed from path {
+	//    next_entry = current_dir.find(current_component);
+	//    if not last component {
+	//       if let Some(next_dir) = next_entry.as_dir() {
+	//          current_dir = next_dir;
+        //       }
+	//       else {
+	//          return Err(Invalid Path Error);
+        //       }
+	//    }
+	// }
+	
+	// return Entry
+	return Err(io::Error::new(io::ErrorKind::NotFound, "failed to open file"));
     }
 }
 

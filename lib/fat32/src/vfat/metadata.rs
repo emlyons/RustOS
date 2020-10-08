@@ -5,16 +5,6 @@ use alloc::string::String;
 
 use crate::traits;
 
-pub enum Attribute {
-    READ_ONLY = 0x01,
-    HIDDEN = 0x02,
-    SYSTEM = 0x04,
-    VOLUME_ID = 0x08,
-    DIRECTORY = 0x10,
-    ARCHIVE = 0x20,
-    LFN = 0x0f,
-}
-
 /// A date as represented in FAT32 on-disk structures.
 #[repr(C, packed)]
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
@@ -30,6 +20,7 @@ pub struct Time(u16);
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Attributes(u8);
 
+#[repr(u8)]
 enum attr {
     READ_ONLY = 0x01,
     HIDDEN = 0x02,
@@ -228,6 +219,24 @@ impl traits::Metadata for Metadata {
     /// The file's size in bytes
     fn file_size(&self) -> u32 {
 	self.file_size
+    }
+}
+
+impl Metadata {
+    pub fn root () -> Metadata {
+	Metadata {
+	    attributes: Attributes(attr::DIRECTORY as u8),
+	    reserved: 0,
+	    create_time_tenths: 0,
+	    create_time: Time(0),
+	    create_date: Date(0),
+	    access_date: Date(0),
+	    cluster_high: 0,
+	    modified_time: Time(0),
+	    modified_date: Date(0),
+	    cluster_low: 0,
+	    file_size: 0,
+	}
     }
 }
 

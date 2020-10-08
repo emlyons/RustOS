@@ -18,7 +18,6 @@ use crate::vfat::{Cluster, Entry, File, VFatHandle};
 pub struct Dir<HANDLE: VFatHandle> {
     pub vfat: HANDLE,
     pub cluster: Cluster,
-    pub size: u32,
     pub metadata: Metadata,
     pub short_name: String,
     pub long_name: String,
@@ -143,6 +142,18 @@ impl<HANDLE: VFatHandle> Dir<HANDLE> {
 	    &self.long_name
 	}
     }
+
+    // Builds a directory given a root cluster
+    // It is the callers responsibility to make sure CLUSTER is a valid root cluster for a directory
+    pub fn root(vfat: &HANDLE) -> Dir<HANDLE> {	
+	Dir {
+	    vfat: vfat.clone(),
+	    cluster: vfat.lock(|v| v.root_cluster()),
+	    metadata: Metadata::root(),
+	    short_name: String::new(),
+	    long_name: String::new(),
+	}
+    }
 }
 
 pub struct DirIterator<HANDLE: VFatHandle> {
@@ -177,7 +188,6 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 	    // go to next entry
 	    self.entry_offset += 1;
 	}
-
 	self.parse_reg(vec_name.join(""))
     }
 
@@ -209,7 +219,6 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 	    let dir_entry = Entry::_Dir(Dir {
 	        vfat: self.vfat.clone(),
 		cluster: Cluster::from(entry.metadata.cluster()),
-		size: entry.metadata.file_size(),
 		metadata: entry.metadata,
 		short_name: entry.name(),
 		long_name: long_name,

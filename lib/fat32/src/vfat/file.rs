@@ -88,6 +88,8 @@ impl<HANDLE: VFatHandle> io::Seek for File<HANDLE> {
     /// in an `InvalidInput` error.
     fn seek(&mut self, _pos: SeekFrom) -> io::Result<u64> {
 	let mut long_pos: u64 = 0;
+
+	// safely convert to 32 bit (FAT32) file offset
 	match _pos {
 	    SeekFrom::Start(offset) => {long_pos = offset;},
 	    SeekFrom::End(offset) => {long_pos = add_signed_unsigned(self.size as u64, offset);},
@@ -99,12 +101,11 @@ impl<HANDLE: VFatHandle> io::Seek for File<HANDLE> {
 	}
 	let pos = long_pos as u32;
 
+	// maintain current cluster
 	let bytes_per_cluster = self.vfat.lock(|v| v.cluster_size());
 	let start_of_current_cluster = self.position - (self.position % bytes_per_cluster);
 	let start_of_next_cluster = self.position + (bytes_per_cluster - (self.position % bytes_per_cluster));
 	let end_of_next_cluster = start_of_next_cluster + bytes_per_cluster - 1;
-
-
 	if start_of_current_cluster <= pos && pos < start_of_next_cluster {
 	    // same cluster
 	} else if start_of_next_cluster <= pos && pos <= end_of_next_cluster {
@@ -113,8 +114,10 @@ impl<HANDLE: VFatHandle> io::Seek for File<HANDLE> {
 	}
 	else {
 	    // if not, linear lookup of cluster
-	    self.vfat.lock(|v| v.find_cluster(pos as usize))?;
+	    self.current_cluster = self.vfat.lock(|v| v.find_cluster(self.cluster, pos as usize))?;
 	}
+
+	// update file byte offset
 	self.position = pos;
 	Ok(pos as u64)
     }
