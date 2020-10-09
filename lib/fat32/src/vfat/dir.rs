@@ -115,6 +115,14 @@ pub union VFatDirEntry {
 }
 
 impl<HANDLE: VFatHandle> Dir<HANDLE> {
+
+    pub fn from(entry: Entry<HANDLE>) -> Option<Dir<HANDLE>> {
+	match entry {
+	    Entry::_Dir(dir) => Some(dir),
+	    _ => None,
+	}
+    }
+    
     /// Finds the entry named `name` in `self` and returns it. Comparison is
     /// case-insensitive.
     ///
@@ -144,6 +152,7 @@ impl<HANDLE: VFatHandle> Dir<HANDLE> {
     /// Returns the name of the current directory
     pub fn name(&self) -> &str {
 	if self.long_name.is_empty() {
+	    
 	    &self.short_name
 	}
 	else {
@@ -153,14 +162,14 @@ impl<HANDLE: VFatHandle> Dir<HANDLE> {
 
     // Builds a directory given a root cluster
     // It is the callers responsibility to make sure CLUSTER is a valid root cluster for a directory
-    pub fn root(vfat: &HANDLE) -> Dir<HANDLE> {	
-	Dir {
+    pub fn root(vfat: &HANDLE) -> Entry<HANDLE> {
+	Entry::_Dir(Dir {
 	    vfat: vfat.clone(),
 	    cluster: vfat.lock(|v| v.root_cluster()),
 	    metadata: Metadata::root(),
 	    short_name: String::new(),
 	    long_name: String::new(),
-	}
+	})
     }
 }
 

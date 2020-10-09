@@ -49,6 +49,7 @@ pub struct BiosParameterBlock {
 const_assert_size!(BiosParameterBlock, 512);
 
 impl BiosParameterBlock {
+        
     /// Reads the FAT32 extended BIOS parameter block from sector `sector` of
     /// device `device`.
     ///
@@ -67,16 +68,28 @@ impl BiosParameterBlock {
 	    transmute::<[u8; EBPB_SIZE], BiosParameterBlock>(sector_data)
 	};
 
-	// check signatures
-	//if ebpb.signature != VALID_SIG_A && ebpb.signature != VALID_SIG_B {
-	//    return Err(Error::BadSignature);
-	//}
-
 	if ebpb.boot_signature != BOOT_SIG {
 	    return Err(Error::BadSignature);
-	}
-	
+	}	
 	Ok(ebpb)
+    }
+
+        pub fn sector_per_fat(&self) -> u32 {
+	if self.sector_per_FAT > 0 {
+	    self.sector_per_FAT as u32
+	}
+	else {
+	    self.sector_per_FAT_alt
+	}
+    }
+
+    pub fn total_logical_sector(&self) -> u32 {
+	if self.total_logical_sector > 0 {
+	    self.total_logical_sector as u32
+	}
+	else {
+	    self.total_logical_sector_alt
+	}
     }
 }
 

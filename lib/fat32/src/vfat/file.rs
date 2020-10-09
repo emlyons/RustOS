@@ -4,7 +4,7 @@ use shim::io::{self, SeekFrom};
 use core::cmp::{max, min};
 
 use crate::traits;
-use crate::vfat::{Cluster, Metadata, VFatHandle};
+use crate::vfat::{Cluster, Entry, Metadata, VFatHandle};
 
 #[derive(Debug)]
 pub struct File<HANDLE: VFatHandle> {
@@ -20,6 +20,13 @@ pub struct File<HANDLE: VFatHandle> {
 
 impl <HANDLE:VFatHandle> File<HANDLE> {
 
+    pub fn from(entry: Entry<HANDLE>) -> Option<File<HANDLE>> {
+	match entry {
+	    Entry::_File(file) => Some(file),
+	    _ => None,
+	}
+    }
+    
     /// Returns the name of the current file
     pub fn name(&self) -> &str {
 	if self.long_name.is_empty() {

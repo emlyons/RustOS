@@ -207,7 +207,7 @@ impl<'a, HANDLE: VFatHandle> FileSystem for &'a HANDLE {
 
     fn open<P: AsRef<Path>>(self, path: P) -> io::Result<Self::Entry> {
 	// parse path into components..
-	let curr_dir = Dir::root(self);
+	let curr_entry = Dir::root(self);
 
 	// set current_dir to ROOT DIRECTORY
 	// set current_component to first component parsed from PATH
