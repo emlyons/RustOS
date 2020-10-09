@@ -98,12 +98,20 @@ pub struct VFatUnknownDirEntry {
     _res2: [u8; 20],
 }
 
+#[repr(C, packed)]
+#[derive(Default, Copy, Clone)]
+pub struct VFatBlankEntry {
+     _res1: [u8; 32],
+}
+
 const_assert_size!(VFatUnknownDirEntry, 32);
 
+#[derive(Copy, Clone)]
 pub union VFatDirEntry {
     unknown: VFatUnknownDirEntry,
     regular: VFatRegularDirEntry,
     long_filename: VFatLfnDirEntry,
+    blank: VFatBlankEntry
 }
 
 impl<HANDLE: VFatHandle> Dir<HANDLE> {
@@ -280,16 +288,16 @@ impl <HANDLE: VFatHandle> traits::Dir for Dir<HANDLE> {
     fn entries(&self) -> io::Result<Self::Iter> {
 
 	// read in all of directory
-	let mut raw: Vec<u8> = Vec::new();
-	let size = self.vfat.lock(|v| v.read_chain(self.cluster, &mut raw))?;
+	let mut data: Vec<u8> = Vec::new();
+	let size = self.vfat.lock(|v| v.read_chain(self.cluster, &mut data))?;
 
 	// unsafe cast to Vec::<VFatDirEntry>
-	let num_entries = raw.len() / size_of::<VFatDirEntry>();
-	let mut entries: Vec::<VFatDirEntry> = unsafe {
-	    transmute(raw)
-	};
+	let num_entries: usize = data.len() / size_of::<VFatDirEntry>();
+	let mut entries = vec![VFatDirEntry{blank: VFatBlankEntry::default()}; num_entries];
 	unsafe {
-	    entries.set_len(num_entries);
+	    data.as_ptr().copy_to(
+		entries.as_mut_ptr() as *mut u8,
+		num_entries * size_of::<VFatDirEntry>());	    
 	}
 	
 	Ok(DirIterator::<HANDLE>{ vfat: self.vfat.clone(), entries: entries, entry_offset: 0})

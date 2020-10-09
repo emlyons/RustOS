@@ -82,23 +82,6 @@ impl CachedPartition {
         Some(physical_sector)
     }
 
-    /// maps a logical sector to a physical sector
-    /// returns the start index of the physical sector and the number of physical sectors
-    /// (index of first physical sector in logical sector, number of physical sectors in logical sector) \
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if requested sector is invalid
-    fn map_sector(&mut self, sector: u64) -> io::Result<((u64, u64))> {
-	if let Some(physical_sector) = self.virtual_to_physical(sector) {
-	    let num_physical_sector = self.factor();
-	    Ok((physical_sector, num_physical_sector))
-	}
-	else {
-	    Err(io::Error::new(io::ErrorKind::Interrupted, "invalid logical sector requested"))
-	}
-    }
-
     /// reads logical sector for backing store (block device)
     /// adds new entry for logical sector to cache
     /// if sector is already cached, the current cache will be overwritten.
@@ -106,19 +89,26 @@ impl CachedPartition {
     /// # Errors
     ///
     /// Returns an error if there is an error reading the sector from the disk.
-    fn cache_sector(&mut self, sector: u64) -> io::Result<()> {
-	let mut new_entry = CacheEntry::new();
-	let mut physical_sector: u64 = 0;
-	    
-	// map logical sector to physical sector
-	let (phys_sector_start, num_physical_sectors) = self.map_sector(sector)?;
+    fn cache_sector(&mut self, sector: u64) -> io::Result<&[u8]> {
+	let physical_sector_start: u64 = self.virtual_to_physical(sector).expect("attempted to cache invalid logical sector");
+	let num_physical_sectors: u64 = self.factor();
+	let logical_sector_bytes = self.partition.sector_size as usize;
+	let physical_sector_bytes = self.device.sector_size();
+
 
 	// cache from block device
+	let mut data = vec![0u8; logical_sector_bytes];
 	for n in 0..num_physical_sectors {
-	    self.device.read_all_sector(phys_sector_start + n, &mut new_entry.data)?;
+	    self.device.read_sector(
+		physical_sector_start + n,
+		&mut data[(physical_sector_bytes * n) as usize..],
+	    )?;
 	}	    
-	self.cache.insert(sector, new_entry);
-	Ok(())
+	self.cache.insert(sector, CacheEntry{
+	    data: data,
+	    dirty: false,
+	});
+	Ok(&self.cache[&sector].data[..])
     }
 
     /// Returns a mutable reference to the cached sector `sector`. If the sector
@@ -140,7 +130,7 @@ impl CachedPartition {
 	// return sector from cache
 	let mut entry = self.cache.get_mut(&sector).unwrap();
 	entry.dirty = true;
-	return Ok(entry.data.as_mut_slice());
+	Ok(entry.data.as_mut_slice())
     }
 
     /// Returns a reference to the cached sector `sector`. If the sector is not
@@ -150,14 +140,14 @@ impl CachedPartition {
     ///
     /// Returns an error if there is an error reading the sector from the disk.
     pub fn get(&mut self, sector: u64) -> io::Result<&[u8]> {
-	// check cache for logical sector and read if not present
 	if !self.cache.contains_key(&sector) {
-	    self.cache_sector(sector)?;
+	    // cache new sectors
+	    self.cache_sector(sector)
 	}
-
-	// return sector from cache
-	let entry = self.cache.get(&sector).unwrap();
-	return Ok(entry.data.as_slice());
+	else {
+	    // return sector from cache if it has been added
+	    Ok(&self.cache[&sector].data[..])
+	}
     }
 }
 
