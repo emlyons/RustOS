@@ -91,8 +91,8 @@ impl BiosParameterBlock {
 	self.logical_per_cluster() * self.logical_sector_size()
     }
 
-    /// offset in logical sectors from start of partition (".start_sector()" in PTE) to first data cluster
-    pub fn data_start(&self) -> u32 {
+    /// offset in logical sectors from start of partition (".start_sector()" in PTE) to first FAT
+    pub fn fat_start(&self) -> u32 {
 	u16::from_le_bytes(self.reserved_sectors) as u32
     }
 
@@ -202,7 +202,7 @@ mod tests {
 	// logical sectors per cluster
 	data[13] = 0x33;
 
-	// data start sector (first sector of cluster 2)
+	// fat start sector (first FAT)
 	data[14] = 0x77;
 	data[15] = 0x88;
 
@@ -248,7 +248,7 @@ mod tests {
 
 	assert_eq!(ebpb.logical_sector_size(), 0x1FF);
 	assert_eq!(ebpb.logical_per_cluster(), 0x33);
-	assert_eq!(ebpb.data_start(), 0x8877);
+	assert_eq!(ebpb.fat_start(), 0x8877);
 	assert_eq!(ebpb.num_fats(), 0x02);
 //	assert_eq!(ebpb.num_logical_sectors(), 0x21AA);
 	assert_eq!(ebpb.num_logical_sectors(), 0x87654321);

@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use core::fmt;
 use hashbrown::HashMap;
 use shim::io;
+use core::cmp;
 
 use crate::traits::BlockDevice;
 
@@ -10,12 +11,6 @@ use crate::traits::BlockDevice;
 struct CacheEntry {
     data: Vec<u8>,
     dirty: bool,
-}
-
-impl CacheEntry {
-    fn new() -> CacheEntry {
-	CacheEntry { data: Vec::new(), dirty: false }
-    }
 }
 
 pub struct Partition {
@@ -82,45 +77,6 @@ impl CachedPartition {
         Some(physical_sector)
     }
 
-    /// maps a logical sector to a physical sector
-    /// returns the start index of the physical sector and the number of physical sectors
-    /// (index of first physical sector in logical sector, number of physical sectors in logical sector) \
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if requested sector is invalid
-    fn map_sector(&mut self, sector: u64) -> io::Result<((u64, u64))> {
-	if let Some(physical_sector) = self.virtual_to_physical(sector) {
-	    let num_physical_sector = self.factor();
-	    Ok((physical_sector, num_physical_sector))
-	}
-	else {
-	    Err(io::Error::new(io::ErrorKind::Interrupted, "invalid logical sector requested"))
-	}
-    }
-
-    /// reads logical sector for backing store (block device)
-    /// adds new entry for logical sector to cache
-    /// if sector is already cached, the current cache will be overwritten.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if there is an error reading the sector from the disk.
-    fn cache_sector(&mut self, sector: u64) -> io::Result<()> {
-	let mut new_entry = CacheEntry::new();
-	let mut physical_sector: u64 = 0;
-	    
-	// map logical sector to physical sector
-	let (phys_sector, num_phys) = self.map_sector(sector)?;
-
-	// cache from block device
-	for n in 0..num_phys {
-	    self.device.read_all_sector(phys_sector + n, &mut new_entry.data)?;
-	}	    
-	self.cache.insert(sector, new_entry);
-	Ok(())
-    }
-
     /// Returns a mutable reference to the cached sector `sector`. If the sector
     /// is not already cached, the sector is first read from the disk.
     ///
@@ -132,15 +88,10 @@ impl CachedPartition {
     ///
     /// Returns an error if there is an error reading the sector from the disk.
     pub fn get_mut(&mut self, sector: u64) -> io::Result<&mut [u8]> {
-	// check cache for logical sector and read if not present
-	if !self.cache.contains_key(&sector) {
-	    self.cache_sector(sector)?;
-	}
-
-	// return sector from cache
-	let mut entry = self.cache.get_mut(&sector).unwrap();
+        self.get(sector)?;
+	let entry = self.cache.get_mut(&sector).unwrap();
 	entry.dirty = true;
-	return Ok(entry.data.as_mut_slice());
+	Ok(&mut entry.data)
     }
 
     /// Returns a reference to the cached sector `sector`. If the sector is not
@@ -150,14 +101,25 @@ impl CachedPartition {
     ///
     /// Returns an error if there is an error reading the sector from the disk.
     pub fn get(&mut self, sector: u64) -> io::Result<&[u8]> {
-	// check cache for logical sector and read if not present
-	if !self.cache.contains_key(&sector) {
-	    self.cache_sector(sector)?;
-	}
+        if !self.cache.contains_key(&sector) {
+	    let physical_sector = self.virtual_to_physical(sector).expect("attempted to cache invalid sector");
+	    let num_physical = self.factor();
+	    let logical_size: usize = self.partition.sector_size as usize;
+	    let physical_size = self.device.sector_size();
 
-	// return sector from cache
-	let entry = self.cache.get(&sector).unwrap();
-	return Ok(entry.data.as_slice());
+	    let mut data = vec![0u8; logical_size];
+	    for n in 0..num_physical {
+		self.device.read_sector(
+		    physical_sector + n,
+		    &mut data[(physical_size * n) as usize..],
+		)?;
+	    }
+	    self.cache.insert(sector, CacheEntry {
+		data: data,
+		dirty: false,
+	    });
+	}
+	Ok(&self.cache[&sector].data)
     }
 }
 
@@ -169,14 +131,19 @@ impl BlockDevice for CachedPartition {
     }
 
     fn read_sector(&mut self, sector: u64, buf: &mut [u8]) -> io::Result<usize> {
-	buf.copy_from_slice(self.get(sector)?);
-	Ok(self.partition.sector_size as usize)
+        if self.cache.contains_key(&sector) {
+	    let entry = &self.cache[&sector].data;
+	    let bytes = cmp::min(buf.len(), entry.len());
+	    buf[0..bytes].copy_from_slice(&entry[0..bytes]);
+	    Ok(bytes)
+	}
+	else {
+	    Err(io::Error::new(io::ErrorKind::Other, "read sector requested not in cache"))
+	}
     }
 
     fn write_sector(&mut self, sector: u64, buf: &[u8]) -> io::Result<usize> {
-	let mut cached_data = self.get_mut(sector)?;
-	cached_data.copy_from_slice(buf);
-	Ok(self.partition.sector_size as usize)
+        unimplemented!()
     }
 }
 
@@ -186,5 +153,182 @@ impl fmt::Debug for CachedPartition {
             .field("device", &"<block device>")
             .field("cache", &self.cache)
             .finish()
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shim::io::Cursor;
+    use crate::mbr::MasterBootRecord;
+    use crate::vfat::ebpb::BiosParameterBlock;
+
+    static mut data: [u8; 512*10] = [0; 512*10];
+
+    #[test]
+    fn test_cache() -> Result<(), String> {
+	
+	unsafe {
+	    // set "Valid bootsector" signature
+	    data[510] = 0x55;
+	    data[511] = 0xAA;
+	    
+	    // PTE signatures
+	    data[446] = 0x80;
+	    data[462] = 0x00;
+	    data[478] = 0x00;
+	    data[494] = 0x00;
+	    
+	    
+	    // PTE types
+	    data[450] = 0x0B;
+	    data[466] = 0x0C;
+	    data[482] = 0x0C;
+	    data[498] = 0x0C;
+	    
+	    // first sector of partition
+	    data[454] = 0x01;
+	    data[455] = 0x00;
+	    data[456] = 0x00;
+	    data[457] = 0x00;
+	    
+	    data[470] = 0x00;
+	    data[471] = 0x00;
+	    data[472] = 0x00;
+	    data[473] = 0x00;
+	    
+	    data[486] = 0x00;
+	    data[487] = 0x00;
+	    data[488] = 0x00;
+	    data[489] = 0x00;
+	    
+	    data[502] = 0x00;
+	    data[503] = 0x00;
+	    data[504] = 0x00;
+	    data[505] = 0x00;
+	    
+	    // sectors in partition
+	    data[458] = 0xFE;
+	    data[459] = 0x00;
+	    data[460] = 0x00;
+	    data[461] = 0x00;
+	    
+	    data[474] = 0x44;
+	    data[475] = 0x55;
+	    data[476] = 0x66;
+	    data[477] = 0x77;
+	    
+	    data[490] = 0x88;
+	    data[491] = 0x99;
+	    data[492] = 0xAA;
+	    data[493] = 0xBB;
+	    
+	    data[506] = 0xCC;
+	    data[507] = 0xDD;
+	    data[508] = 0xEE;
+	    data[509] = 0xFF;
+	    
+	    let ebpb_start = 512;
+	    
+	    // bytes per logical sector
+	    data[ebpb_start+11] = 0x00;
+	    data[ebpb_start+12] = 0x04;
+
+	    // logical sectors per cluster
+	    data[ebpb_start+13] = 0x02;
+	    
+	    // fat start sector offset
+	    data[ebpb_start+14] = 0x01;
+	    data[ebpb_start+15] = 0x00;
+	    
+	    // number of FAT copies
+	    data[ebpb_start+16] = 0x01;
+	    
+	    // sectors on partition
+	    data[ebpb_start+19] = 0x7F;
+	    data[ebpb_start+20] = 0;
+	    
+	    data[ebpb_start+32] = 0;
+	    data[ebpb_start+33] = 0;
+	    data[ebpb_start+34] = 0;
+	    data[ebpb_start+35] = 0;
+	    
+	    // sectors per FAT
+	    data[ebpb_start+22] = 0;
+	    data[ebpb_start+23] = 0;
+	    
+	    data[ebpb_start+36] = 0x01;
+	    data[ebpb_start+37] = 0;
+	    data[ebpb_start+38] = 0;
+	    data[ebpb_start+39] = 0;
+	    
+	    // root cluster
+	    data[ebpb_start+44] = 0x02;
+	    data[ebpb_start+45] = 0;
+	    data[ebpb_start+46] = 0;
+	    data[ebpb_start+47] = 0;
+	    
+	    // ignature
+	    data[ebpb_start+66] = 0x29;
+	    
+	    // boot signature
+	    data[ebpb_start+510] = 0x55;
+	    data[ebpb_start+511] = 0xAA;
+
+	    // logical sector to physical sectors(~:0 0:1,2 1:3,4 2:5,6 3:7,8 4:9,10)
+	    data[512*7 + 100] = 0x33;
+	    data[512*8 + 133] = 0x42;
+	    
+
+	    let block_device = Cursor::new(&mut data[..]);
+	
+	    let mut data_copy: [u8; 512*10] = [0u8; 512*10];
+	    data_copy.copy_from_slice(&data);
+	    let block_copy = Cursor::new(&mut data_copy[..]);	    
+	    let mbr = MasterBootRecord::from(block_copy).expect("mock MBR parse failed");
+	    assert_eq!(mbr.first_pte().start_sector(), 0x01);
+	    assert_eq!(mbr.first_pte().num_sectors(), 0xFE);
+
+	    let mut data_copy2: [u8; 512*10] = [0u8; 512*10];
+	    data_copy2.copy_from_slice(&data);
+	    let block_copy2 = Cursor::new(&mut data_copy2[..]);	    
+	    let ebpb = BiosParameterBlock::from(block_copy2, mbr.first_pte().start_sector() as u64).expect("mock EBPB parse failed");
+	    assert_eq!(ebpb.logical_sector_size(), 1024);
+	    assert_eq!(ebpb.logical_per_cluster(), 0x02);
+	    assert_eq!(ebpb.fat_start(), 0x01);
+	    assert_eq!(ebpb.num_fats(), 0x01);
+	    assert_eq!(ebpb.num_logical_sectors(), 0xFE/2);
+	    assert_eq!(ebpb.num_sectors_per_fat(), 0x1);
+	    
+	    let partition = Partition {
+		/// The physical sector where the partition begins.
+		start: mbr.first_pte().start_sector() as u64,
+		/// Number of sectors
+		num_sectors: mbr.first_pte().num_sectors() as u64,
+		/// The size, in bytes, of a logical sector in the partition.
+		sector_size: ebpb.logical_sector_size() as u64,
+	    };
+	    
+	    let mut cache = CachedPartition::new(block_device, partition);
+
+	    let mut buf: [u8; 1024] = [0u8; 1024];
+	    if let Ok(_) = cache.read_sector(3, &mut buf) {
+		panic!("\n\nread uncached sector\n\n")
+	    }
+
+	    let result = cache.get(3).expect("failed to read");
+	    assert_eq!(result[100], 0x33);
+	    assert_eq!(result[645], 0x42);
+	    println!(" {:?} ", result);
+
+	    if let Err(_) = cache.read_sector(3, &mut buf) {
+		panic!("\n\nread cached sector\n\n")
+	    }
+
+	    println!("\n\n{}\n\n", cache.factor());
+
+	}
+	Ok(())
     }
 }
