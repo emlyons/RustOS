@@ -208,9 +208,9 @@ impl MasterBootRecord {
 	}
 
 	// verify partition type
-	if !mbr.first_pte().partition_type() || !mbr.second_pte().partition_type() || !mbr.third_pte().partition_type() || !mbr.fourth_pte().partition_type() {
-	    return Err(Error::Io(io::Error::new(io::ErrorKind::Other, "invalid partition type found")));
-	}
+	//if !mbr.first_pte().partition_type() && !mbr.second_pte().partition_type() && !mbr.third_pte().partition_type() && !mbr.fourth_pte().partition_type() {
+	  //  return Err(Error::Io(io::Error::new(io::ErrorKind::Other, "no valid partitions found")));
+	//}
 	
 	Ok(mbr)
     }
