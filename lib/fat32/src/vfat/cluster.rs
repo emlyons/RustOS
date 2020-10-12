@@ -7,4 +7,12 @@ impl From<u32> for Cluster {
     }
 }
 
-// TODO: Implement any useful helper methods on `Cluster`.
+impl Cluster {
+    pub fn number(&self) -> u32 {
+	self.0
+    }
+
+    pub fn is_valid(&self) -> bool {
+	self.0 >= 2
+    }
+}

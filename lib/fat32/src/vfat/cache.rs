@@ -302,11 +302,8 @@ mod tests {
 	    assert_eq!(ebpb.num_sectors_per_fat(), 0x1);
 	    
 	    let partition = Partition {
-		/// The physical sector where the partition begins.
 		start: mbr.first_pte().start_sector() as u64,
-		/// Number of sectors
 		num_sectors: mbr.first_pte().num_sectors() as u64,
-		/// The size, in bytes, of a logical sector in the partition.
 		sector_size: ebpb.logical_sector_size() as u64,
 	    };
 	    
