@@ -7,11 +7,13 @@ use crate::traits::BlockDevice;
 
 const MBR_SECTOR: u64 = 0;
 const MBR_SIZE: usize = size_of::<MasterBootRecord>();
-const VALID_BOOTSEC: u16 = 0xAA55;
-const INACTIVE_PART: u8 = 0x00;
-const ACTIVE_PART: u8 = 0x80;   	
+const VALID_SIGNATURE: u16 = 0xAA55;
+const INACTIVE_PARTITION: u8 = 0x00;
+const ACTIVE_PARTITION: u8 = 0x80;
+const FAT32_ID_1: u8 = 0x0B;
+const FAT32_ID_2: u8 = 0x0C;
 
-#[repr(C)]
+#[repr(C, packed)]
 #[derive(Copy, Clone)]
 pub struct CHS {
     head: u8, 
@@ -31,13 +33,46 @@ impl fmt::Debug for CHS {
 const_assert_size!(CHS, 3);
 
 #[repr(C, packed)]
+#[derive(Copy, Clone)]
 pub struct PartitionEntry {
     boot_indicator: u8,
     start_chs: CHS,
     partition_type: u8,
     end_chs: CHS,
-    relative_sector: u32, // offset, in sectors, from start of disk to start of parition
-    total_sectors: u32,
+    relative_sector: [u8; 4], // offset, in sectors, from start of disk to start of parition
+    total_sectors: [u8; 4],
+}
+
+impl PartitionEntry {
+    pub fn bootable(&self) -> Result<bool, Error> {
+	if self.boot_indicator == ACTIVE_PARTITION {
+	    Ok(true)
+	}
+	else if self.boot_indicator == INACTIVE_PARTITION {
+	    Ok(false)
+	}
+	else {
+	    Err(Error::Io(io::Error::new(io::ErrorKind::Other, "pte has an invalid boot indicator")))
+	}
+    }
+
+    pub fn partition_type(&self) -> bool {
+	if self.partition_type == FAT32_ID_1 || self.partition_type == FAT32_ID_2 {
+	    true
+	}
+	else {
+	    false
+	}   
+    }
+
+    // TODO
+    pub fn start_sector(&self) -> u32 {
+	u32::from_le_bytes(self.relative_sector)
+    }
+
+    pub fn num_sectors(&self) -> u32 {
+	u32::from_le_bytes(self.total_sectors)
+    }
 }
 
 // FIXME: implement Debug for PartitionEntry
@@ -58,6 +93,7 @@ const_assert_size!(PartitionEntry, 16);
 
 /// The master boot record (MBR).
 #[repr(C, packed)]
+#[derive(Copy, Clone)]
 pub struct MasterBootRecord {
     MBR_Bootstrap: [u8; 436],
     disk_ID: [u8; 10],
@@ -65,10 +101,37 @@ pub struct MasterBootRecord {
     pte_second: PartitionEntry,
     pte_third: PartitionEntry,
     pte_fourth: PartitionEntry,
-    signature: u16,
+    signature: [u8; 2],
 }
 
-// FIXME: implemente Debug for MaterBootRecord
+impl MasterBootRecord {
+    pub fn first_pte(&self) -> PartitionEntry {
+	self.pte_first
+    }
+
+    pub fn second_pte(&self) -> PartitionEntry {
+	self.pte_second
+    }
+
+    pub fn third_pte(&self) -> PartitionEntry {
+	self.pte_third
+    }
+
+    pub fn fourth_pte(&self) -> PartitionEntry {
+	self.pte_fourth
+    }
+
+    pub fn signature(&self) -> bool {
+	if u16::from_le_bytes(self.signature) == VALID_SIGNATURE {
+	    true
+	}
+	else {
+	    false
+	}
+    }
+}
+
+// FIXME: implemente Debug for MasterBootRecord
 impl fmt::Debug for MasterBootRecord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("MasterBootRecord")
@@ -83,16 +146,6 @@ impl fmt::Debug for MasterBootRecord {
 }
 
 const_assert_size!(MasterBootRecord, 512);
-
-/// Verifies the boot indicator of a partition entry conforms to a valid FAT32 value
-fn verify_boot_indicator(pte: &PartitionEntry, partition_number: u8) -> Result<(), Error> {	
-    let boot_indicator = pte.boot_indicator;
-    
-    match boot_indicator == INACTIVE_PART || boot_indicator == ACTIVE_PART {
-	true => Ok(()),
-	false => Err(Error::UnknownBootIndicator(partition_number)),
-    }	
-}
 
 #[derive(Debug)]
 pub enum Error {
@@ -120,30 +173,45 @@ impl MasterBootRecord {
     /// boot indicator. Returns `Io(err)` if the I/O error `err` occured while
     /// reading the MBR.
     pub fn from<T: BlockDevice>(mut device: T) -> Result<MasterBootRecord, Error> {
-	let mut sector_data: [u8; MBR_SIZE] = [0u8; MBR_SIZE];
+	let mut data: [u8; MBR_SIZE] = [0u8; MBR_SIZE];
 
 	// read sector
-	let read_size = device.read_sector(MBR_SECTOR, &mut sector_data)?;
+	let read_size = device.read_sector(MBR_SECTOR, &mut data)?;
 
 	// cast sector_data to struct MasterBootRecord
 	if read_size != MBR_SIZE {
 	    return Err(Error::Io(io::Error::new(io::ErrorKind::Other, "MasterBootRecord size is invalid")));
-	}	
-	let mbr = unsafe {
-	    transmute::<[u8; MBR_SIZE], MasterBootRecord>(sector_data)
+	}
+
+	let mbr_ptr = data.as_ptr() as *const MasterBootRecord;
+	let mbr: MasterBootRecord = unsafe {
+	    *mbr_ptr
 	};
 
-	// check signature
-	if mbr.signature != VALID_BOOTSEC {  // on fail return BadSignature
+	//check signature
+	if !mbr.signature() {
 	    return Err(Error::BadSignature);
 	}
 
 	// check boot indicators for each pte (i.e. must be 0x00 (inactive) or 0x80 (bootable))
-	verify_boot_indicator(&mbr.pte_first, 0)?;
-	verify_boot_indicator(&mbr.pte_second, 1)?;
-	verify_boot_indicator(&mbr.pte_third, 2)?;
-	verify_boot_indicator(&mbr.pte_fourth, 3)?;
+	if let Err(err) = mbr.first_pte().bootable() {
+	    return Err(Error::UnknownBootIndicator(0));
+	}
+	if let Err(err) = mbr.second_pte().bootable() {
+	    return Err(Error::UnknownBootIndicator(1));
+	}
+	if let Err(err) = mbr.third_pte().bootable() {
+	    return Err(Error::UnknownBootIndicator(2));
+	}
+	if let Err(err) = mbr.fourth_pte().bootable() {
+	    return Err(Error::UnknownBootIndicator(3));
+	}
 
+	// verify partition type
+	if !mbr.first_pte().partition_type() || !mbr.second_pte().partition_type() || !mbr.third_pte().partition_type() || !mbr.fourth_pte().partition_type() {
+	    return Err(Error::Io(io::Error::new(io::ErrorKind::Other, "invalid partition type found")));
+	}
+	
 	Ok(mbr)
     }
 }
@@ -167,10 +235,70 @@ mod tests {
 	mock_mbr_sector[462] = 0x00;
 	mock_mbr_sector[478] = 0x00;
 	mock_mbr_sector[494] = 0x00;
+
+
+	// PTE types
+	mock_mbr_sector[450] = FAT32_ID_1;
+	mock_mbr_sector[466] = FAT32_ID_2;
+	mock_mbr_sector[482] = FAT32_ID_1;
+	mock_mbr_sector[498] = FAT32_ID_2;
+
+	// first sector of partition
+	mock_mbr_sector[454] = 0x00;
+	mock_mbr_sector[455] = 0x11;
+	mock_mbr_sector[456] = 0x22;
+	mock_mbr_sector[457] = 0x33;
+	
+	mock_mbr_sector[470] = 0x44;
+	mock_mbr_sector[471] = 0x55;
+	mock_mbr_sector[472] = 0x66;
+	mock_mbr_sector[473] = 0x77;
+	
+	mock_mbr_sector[486] = 0x88;
+	mock_mbr_sector[487] = 0x99;
+	mock_mbr_sector[488] = 0xAA;
+	mock_mbr_sector[489] = 0xBB;
+	
+	mock_mbr_sector[502] = 0xCC;
+	mock_mbr_sector[503] = 0xDD;
+	mock_mbr_sector[504] = 0xEE;
+	mock_mbr_sector[505] = 0xFF;
+
+	// sectors in partition
+	mock_mbr_sector[458] = 0x00;
+	mock_mbr_sector[459] = 0x11;
+	mock_mbr_sector[460] = 0x22;
+	mock_mbr_sector[461] = 0x33;
+	
+	mock_mbr_sector[474] = 0x44;
+	mock_mbr_sector[475] = 0x55;
+	mock_mbr_sector[476] = 0x66;
+	mock_mbr_sector[477] = 0x77;
+	
+	mock_mbr_sector[490] = 0x88;
+	mock_mbr_sector[491] = 0x99;
+	mock_mbr_sector[492] = 0xAA;
+	mock_mbr_sector[493] = 0xBB;
+	
+	mock_mbr_sector[506] = 0xCC;
+	mock_mbr_sector[507] = 0xDD;
+	mock_mbr_sector[508] = 0xEE;
+	mock_mbr_sector[509] = 0xFF;
 	
 	let block_device = Cursor::new(&mut mock_mbr_sector[..]);
 
-	MasterBootRecord::from(block_device).expect("mock MBR parse failed");
+	let mbr = MasterBootRecord::from(block_device).expect("mock MBR parse failed");
+
+	assert_eq!(mbr.first_pte().start_sector(), 0x33221100);
+	assert_eq!(mbr.second_pte().start_sector(), 0x77665544);
+	assert_eq!(mbr.third_pte().start_sector(), 0xBBAA9988);
+	assert_eq!(mbr.fourth_pte().start_sector(), 0xFFEEDDCC);
+
+	assert_eq!(mbr.first_pte().num_sectors(), 0x33221100);
+	assert_eq!(mbr.second_pte().num_sectors(), 0x77665544);
+	assert_eq!(mbr.third_pte().num_sectors(), 0xBBAA9988);
+	assert_eq!(mbr.fourth_pte().num_sectors(), 0xFFEEDDCC);
+	
 
 	Ok(())
     }
