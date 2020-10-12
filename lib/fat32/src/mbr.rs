@@ -104,33 +104,6 @@ pub struct MasterBootRecord {
     signature: [u8; 2],
 }
 
-impl MasterBootRecord {
-    pub fn first_pte(&self) -> PartitionEntry {
-	self.pte_first
-    }
-
-    pub fn second_pte(&self) -> PartitionEntry {
-	self.pte_second
-    }
-
-    pub fn third_pte(&self) -> PartitionEntry {
-	self.pte_third
-    }
-
-    pub fn fourth_pte(&self) -> PartitionEntry {
-	self.pte_fourth
-    }
-
-    pub fn signature(&self) -> bool {
-	if u16::from_le_bytes(self.signature) == VALID_SIGNATURE {
-	    true
-	}
-	else {
-	    false
-	}
-    }
-}
-
 // FIXME: implemente Debug for MasterBootRecord
 impl fmt::Debug for MasterBootRecord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -213,6 +186,31 @@ impl MasterBootRecord {
 	//}
 	
 	Ok(mbr)
+    }
+
+        pub fn first_pte(&self) -> PartitionEntry {
+	self.pte_first
+    }
+
+    pub fn second_pte(&self) -> PartitionEntry {
+	self.pte_second
+    }
+
+    pub fn third_pte(&self) -> PartitionEntry {
+	self.pte_third
+    }
+
+    pub fn fourth_pte(&self) -> PartitionEntry {
+	self.pte_fourth
+    }
+
+    pub fn signature(&self) -> bool {
+	if u16::from_le_bytes(self.signature) == VALID_SIGNATURE {
+	    true
+	}
+	else {
+	    false
+	}
     }
 }
 
