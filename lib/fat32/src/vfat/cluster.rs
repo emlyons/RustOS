@@ -12,6 +12,10 @@ impl Cluster {
 	self.0
     }
 
+    pub fn index(&self) -> u32 {
+	self.0 - 2
+    }
+
     pub fn is_valid(&self) -> bool {
 	self.0 >= 2
     }

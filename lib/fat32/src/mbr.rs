@@ -65,7 +65,6 @@ impl PartitionEntry {
 	}   
     }
 
-    // TODO
     pub fn start_sector(&self) -> u32 {
 	u32::from_le_bytes(self.relative_sector)
     }
