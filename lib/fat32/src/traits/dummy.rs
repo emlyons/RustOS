@@ -109,6 +109,27 @@ impl Metadata for Dummy {
     fn hidden(&self) -> bool {
         panic!("Dummy")
     }
+
+    fn system(&self) -> bool {
+        panic!("Dummy")
+    }
+
+    fn volume_id(&self) -> bool {
+        panic!("Dummy")
+    }
+
+    fn directory(&self) -> bool {
+        panic!("Dummy")
+    }
+
+    fn archive(&self) -> bool {
+        panic!("Dummy")
+    }
+
+    fn lfn(&self) -> bool {
+        panic!("Dummy")
+    }
+    
     fn created(&self) -> Self::Timestamp {
         panic!("Dummy")
     }
@@ -116,6 +137,14 @@ impl Metadata for Dummy {
         panic!("Dummy")
     }
     fn modified(&self) -> Self::Timestamp {
+        panic!("Dummy")
+    }
+
+    fn cluster(&self) -> u32 {
+        panic!("Dummy")
+    }
+
+    fn file_size(&self) -> u32 {
         panic!("Dummy")
     }
 }
