@@ -83,7 +83,6 @@ impl VFatLfnDirEntry {
 	name.extend_from_slice(&self.name_chars);
 	name.extend_from_slice(&self.name_chars_second);
 	name.extend_from_slice(&self.name_chars_third);
-	assert_eq!(name.len(), 10 + 12 + 4);
 	let mut name_string = String::from_utf16(&name).unwrap();
 
 	// check for termination characters
@@ -181,6 +180,17 @@ impl<HANDLE: VFatHandle> Dir<HANDLE> {
 	    long_name: String::new(),
 	})
     }
+
+    // DEBUG
+    fn get_iter(&self) -> DirIterator<HANDLE> {
+	use traits::{Dir, Entry};
+	self.entries().expect("iterator failed")
+    }
+
+    // DEBUG
+    fn get_next(&self, iter: &mut DirIterator<HANDLE>) -> Option<Entry<HANDLE>> {
+	iter.next()
+    }
 }
 
 pub struct DirIterator<HANDLE: VFatHandle> {
@@ -199,6 +209,7 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 
 	// iterate through all LFN entries
 	while (unsafe {self.entries[self.entry_offset].unknown.attributes.lfn()}) {
+	    
 	    let mut lfn_entry: &VFatLfnDirEntry = unsafe {&self.entries[self.entry_offset].long_filename};
 
 	    // sequence: 0 ... 19
@@ -234,7 +245,6 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
     
 	// increment iterator
 	self.entry_offset += 1;	
-	println!("\n\nfile number: {}\n\n", self.entry_offset);
 
 	// deleted entry
 	if (entry.file_name[0] == 0xE5 || entry.file_name[0] == 0x00) {
@@ -242,7 +252,6 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 	}
 	
 	let name = entry.name();
-	println!("\n\nname: {:?}\n\n", name);
 	
 	if entry.metadata.attributes.directory() {
 	    let dir_entry = Entry::_Dir(Dir {
@@ -282,24 +291,20 @@ impl <HANDLE: VFatHandle> Iterator for DirIterator<HANDLE> {
 		&self.entries[self.entry_offset].unknown
 
 	    };
-	    
+
 	    // attempt to parse entry
 	    if let Some(entry) = {
 		// parse LFN
 		if unknown_entry.attributes.lfn() {
-		    println!("\nparsing lfn with: {}", self.entry_offset);
 		    self.parse_lfn()
 		} else {
-		    println!("\nparsing regular with: {}", self.entry_offset);
 		    self.parse_reg(String::from(""))
 		}
 	    } {
 		// return parsed entry or continue to next entry...
-		println!("\returning with: {}", self.entry_offset);
 		return Some(entry);
 	    }	 
 	}
-	println!("\n failed with: {}", self.entry_offset);
 	return None;
     }
 }
@@ -313,7 +318,6 @@ impl <HANDLE: VFatHandle> traits::Dir for Dir<HANDLE> {
 
     /// Returns an interator over the entries in this directory.
     fn entries(&self) -> io::Result<Self::Iter> {
-
 	// read in all of directory
 	let mut data: Vec<u8> = Vec::new();
 	let size = self.vfat.lock(|v| v.read_chain(self.cluster, &mut data))?;
@@ -520,7 +524,7 @@ mod tests {
 	    // entry for file 1 - 32 bytes
 	    data[cluster_two..cluster_two + 32].copy_from_slice(
 		&[0x68, 0x65, 0x6C, 0x6C, 0x6F, 0x00, 0x00, 0x00, // file name
-		  0x74, 0x78, 0x74, // file extenstion
+		  0x74, 0x78, 0x74, // file extention
 		  0x01, // attributes
 		  0x00, // reserved
 		  99, // creation time in tenths of seconds
@@ -556,25 +560,25 @@ mod tests {
 	    // LFN entry for file 3
 	    data[cluster_two + 32 + 32..cluster_two + 32 + 32 + 32].copy_from_slice(
 		&[0x01,// sequence number
-		  0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A,//name_chars_first
+		  0x41, 0x00, 0x42, 0x00, 0x43, 0x00, 0x44, 0x00, 0x45, 0x00,//name_chars_first
 		  0x0F,// attributes
 		  0x00,// type
 		  0, //DOS checksum
-		  0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56,//name_chars_second
+		  0x46, 0x00, 0x47, 0x00, 0x48, 0x00, 0x49, 0x00, 0x4A, 0x00, 0x4B, 0x00,//name_chars_second
 		  0x00, 0x00,//always 0 for LFN
-		  0x57, 0x58, 0x59, 0x5A,//name_chars_third
+		  0x4C, 0x00, 0x4D, 0x00,//name_chars_third
 		]
 	    );
 
 	    data[cluster_two + 32 + 32 + 32..cluster_two + 32 + 32 + 32 + 32].copy_from_slice(
 		&[0x02,// sequence number
-		  0x7A, 0x79, 0x78, 0x77, 0x76, 0x75, 0x74, 0x73, 0x72, 0x71,//name_chars_first
+		  0x4E, 0x00, 0x4F, 0x00, 0x50, 0x00, 0x51, 0x00, 0x52, 0x00,//name_chars_first
 		  0x0F,// attributes
 		  0x00,// type
 		  0, //DOS checksum
-		  0x70, 0x6F, 0x6E, 0x6D, 0x6C, 0x6B, 0x6A, 0x69, 0x68, 0x67, 0x66, 0x65,//name_chars_second
+		  0x53, 0x00, 0x54, 0x00, 0x55, 0x00, 0x56, 0x00, 0x57, 0x00, 0x58, 0x00,//name_chars_second
 		  0x00, 0x00,//always 0 for LFN
-		  0x64, 0x63, 0x62, 0x61,//name_chars_third
+		  0x59, 0x00, 0x5A, 0x00,//name_chars_third
 		]
 	    );
 
@@ -623,17 +627,13 @@ mod tests {
     }
 
     #[test]
-    fn test_dir_mock_parsing() -> Result<(), String> {
+    fn test_dir_find() -> Result<(), String> {
 	use traits::Entry;
 	let block_device = get_block();
-
-	println!("\n\nrunning test_dir_parse\n\n");
-
 	let vfat = VFat::<StdVFatHandle>::from(block_device).expect("failed to initialize VFAT from image");
-
 	let _root = Dir::root(&vfat);
 	let root_dir = _root.as_dir().unwrap();
-	
+
 	let mut file = root_dir.find("hello.txt").unwrap();
 	assert_eq!(file.name(), String::from("hello.txt"));
 	assert_eq!(file.metadata().cluster(), 4);
@@ -646,12 +646,139 @@ mod tests {
 	assert_eq!(file.metadata().file_size(), 2048);
 	assert!(file.is_file());
 
-	file = root_dir.find("erin.txt").unwrap();
-	assert_eq!(file.name(), String::from("erin.txt"));
+	// update for LFN
+	file = root_dir.find("abcdefghijklmnopqrstuvwxyz").unwrap();
+	assert_eq!(file.name(), String::from("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
 	assert_eq!(file.metadata().cluster(), 6);
 	assert_eq!(file.metadata().file_size(), 2048);
 	assert!(file.is_file());
 
+	let result = root_dir.find("no such file");
+	assert!(result.is_err());
+	
 	Ok(())
     }
+    
+    #[test]
+    fn test_dir_mock_parsing() -> Result<(), String> {
+	use traits::Entry;
+	let block_device = get_block();
+	let vfat = VFat::<StdVFatHandle>::from(block_device).expect("failed to initialize VFAT from image");
+	let _root = Dir::root(&vfat);
+	let root_dir = _root.as_dir().unwrap();
+	let mut iter = root_dir.get_iter();
+
+	/*
+	let mut count = 0;
+	loop {
+	    count += 1;
+	    match root_dir.get_next(&mut iter) {
+		Some(entry) => {
+		    println!("\nfile_{}: {}", count, entry.name());
+		},
+		None => break,
+	    }
+	}
+	 */
+
+	// Regular Entry
+	let mut file = root_dir.get_next(&mut iter).unwrap();
+	assert_eq!(file.name(), String::from("hello.txt"));
+	assert_eq!(file.metadata().cluster(), 4);
+	assert_eq!(file.metadata().file_size(), 4096);
+	assert!(file.is_file());
+	println!("\nfirst file: {}", file.name());
+
+	// Regular Entry
+	file = root_dir.get_next(&mut iter).unwrap();
+	assert_eq!(file.name(), String::from("NO.txt"));
+	assert_eq!(file.metadata().cluster(), 5);
+	assert_eq!(file.metadata().file_size(), 2048);
+	assert!(file.is_file());
+	println!("\nsecond file: {}", file.name());
+
+	// Long File Name Entry
+	file = root_dir.get_next(&mut iter).unwrap();
+	assert_eq!(file.metadata().cluster(), 6);
+	assert_eq!(file.metadata().file_size(), 2048);
+	assert!(file.is_file());
+	println!("\nthird file: {}", file.name());
+	
+	
+	Ok(())
+    }
+
+
+
+
+    macro resource($name:expr) {{
+	let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../ext/fat32-imgs/", $name);
+	match ::std::fs::File::open(path) {
+            Ok(file) => file,
+            Err(e) => {
+		eprintln!(
+                    "\nfailed to find assignment 2 resource '{}': {}\n\
+                     => perhaps you need to run 'make fetch'?",
+                    $name, e
+		);
+		panic!("missing resource");
+            }
+	}
+    }}
+
+    macro vfat_from_resource($name:expr) {
+	VFat::<StdVFatHandle>::from(resource!($name)).expect("failed to initialize VFAT from image")
+    }
+
+    #[test]
+    fn test_img1() -> Result<(), String> {
+	use traits::Entry;
+	let block_device = get_block();
+
+	
+	let vfat = vfat_from_resource!("mock1.fat32.img");
+
+
+	let bytes_per_sector = vfat.lock(|v| v.bytes_per_sector);
+	assert_eq!(bytes_per_sector, 512);
+
+	let sectors_per_cluster = vfat.lock(|v| v.sectors_per_cluster);
+	assert_eq!(sectors_per_cluster, 1);
+
+	let sectors_per_fat = vfat.lock(|v| v.sectors_per_fat);
+	assert_eq!(sectors_per_fat, 0x0BD1);
+
+	let fat_start_sector = vfat.lock(|v| v.fat_start_sector);
+	assert_eq!(fat_start_sector, 32);
+
+	let data_start_sector = vfat.lock(|v| v.data_start_sector);
+	assert_eq!(data_start_sector, 6082);
+	
+ //   fat_start_sector: u64,
+ //   data_start_sector: u64,
+ //   root: Cluster,
+	
+//	let vfat = VFat::<StdVFatHandle>::from(block_device).expect("failed to initialize VFAT from image");
+	let _root = Dir::root(&vfat);
+	let root_dir = _root.as_dir().unwrap();
+
+	println!("get iter");
+	let mut iter = root_dir.get_iter();
+	println!("got iter");
+	/*
+	let mut count = 0;
+	loop {
+	    count += 1;
+	    match root_dir.get_next(&mut iter) {
+		Some(entry) => {
+		    println!("\nfile_{}: {}", count, entry.name());
+		},
+		None => break,
+	    }
+	}
+	 */
+	
+	Ok(())
+    }
+
 }

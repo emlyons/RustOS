@@ -111,7 +111,7 @@ impl traits::Timestamp for Timestamp {
     /// 5-bits
     /// year is offset from 0 == 1980.
     fn year(&self) -> usize {
-	truncate_bits(self.date.0, 9, 5) as usize
+	truncate_bits(self.date.0, 9, 5) as usize + 1980
     }
 
     /// The calendar month, starting at 1 for January. Always in range [1, 12].

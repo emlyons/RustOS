@@ -73,7 +73,6 @@ impl CachedPartition {
 
         let physical_offset = virt * self.factor();
         let physical_sector = self.partition.start + physical_offset;
-
         Some(physical_sector)
     }
 
@@ -102,7 +101,7 @@ impl CachedPartition {
     /// Returns an error if there is an error reading the sector from the disk.
     pub fn get(&mut self, sector: u64) -> io::Result<&[u8]> {
         if !self.cache.contains_key(&sector) {
-	    let physical_sector = self.virtual_to_physical(sector).expect("attempted to cache invalid sector");
+	    let physical_sector = self.virtual_to_physical(sector).expect("attempted to cache invalid sector");	    
 	    let num_physical = self.factor();
 	    let logical_size: usize = self.partition.sector_size as usize;
 	    let physical_size = self.device.sector_size();
@@ -246,7 +245,7 @@ mod tests {
 	    data[ebpb_start+16] = 0x01;
 	    
 	    // sectors on partition
-	    data[ebpb_start+19] = 0x7F;
+	    data[ebpb_start+19] = 0xFF;
 	    data[ebpb_start+20] = 0;
 	    
 	    data[ebpb_start+32] = 0;
@@ -269,7 +268,7 @@ mod tests {
 	    data[ebpb_start+46] = 0;
 	    data[ebpb_start+47] = 0;
 	    
-	    // ignature
+	    // signature
 	    data[ebpb_start+66] = 0x29;
 	    
 	    // boot signature
@@ -298,7 +297,7 @@ mod tests {
 	    assert_eq!(ebpb.logical_per_cluster(), 0x02);
 	    assert_eq!(ebpb.fat_start(), 0x01);
 	    assert_eq!(ebpb.num_fats(), 0x01);
-	    assert_eq!(ebpb.num_logical_sectors(), 0xFE/2);
+	    assert_eq!(ebpb.num_logical_sectors(), 0xFF);
 	    assert_eq!(ebpb.num_sectors_per_fat(), 0x1);
 	    
 	    let partition = Partition {

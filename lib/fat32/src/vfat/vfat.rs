@@ -28,11 +28,11 @@ pub trait VFatHandle: Clone + Debug + Send + Sync {
 pub struct VFat<HANDLE: VFatHandle> {
     phantom: PhantomData<HANDLE>,
     device: CachedPartition,
-    bytes_per_sector: u16,
-    sectors_per_cluster: u8,
-    sectors_per_fat: u32,
-    fat_start_sector: u64,
-    data_start_sector: u64,
+    pub bytes_per_sector: u16,
+    pub sectors_per_cluster: u8,
+    pub sectors_per_fat: u32,
+    pub fat_start_sector: u64,
+    pub data_start_sector: u64,
     root: Cluster,
 }
 
@@ -46,7 +46,7 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	let ebpb = BiosParameterBlock::from(&mut device, pte.start_sector() as u64)?;
 	
 	let partition = Partition {
-	    start: ebpb.fat_start() as u64,
+	    start: pte.start_sector() as u64,
 	    num_sectors: ebpb.num_logical_sectors() as u64,
 	    sector_size: ebpb.logical_sector_size() as u64,
 	};
@@ -118,7 +118,11 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	    bytes_read += read_size;
 	    sector += 1;
 	    byte_offset = 0;
-	}	
+	}
+
+	if cluster.number() == 2 {
+	    
+	}
 	Ok(bytes_read)
     }
 
@@ -144,10 +148,10 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 		    return Ok(bytes_read);
 		},
 		Status::Free => {
-		    return Err(io::Error::new(io::ErrorKind::InvalidInput, "attempted to read from free cluster"));
+		    return Err(io::Error::new(io::ErrorKind::InvalidData, "attempted to read from free cluster"));
 		},
 		Status::Reserved => {
-		    return Err(io::Error::new(io::ErrorKind::InvalidInput, "attempted to read 'reserved' cluster"));
+		    return Err(io::Error::new(io::ErrorKind::InvalidData, "attempted to read 'reserved' cluster"));
 		},
 		Status::Bad => {
 		    return Err(io::Error::new(io::ErrorKind::InvalidData, "bad cluster could not be read"));
@@ -414,8 +418,6 @@ mod tests {
 	    data[cluster_four..cluster_four+4].copy_from_slice(&[99,4,4,4]);
 	    data[cluster_four+1024..cluster_four+1028].copy_from_slice(&[33,4,4,4]);
 	    
-	    
-
 	    Cursor::new(&mut data[..])
 	};
 	return block_device;
@@ -482,8 +484,6 @@ mod tests {
 	assert_eq!(buf[0..4], [99,4,4,4]);
 	assert_eq!(buf[1024..1028], [33,4,4,4]);
 	assert_eq!(read, bytes_per_sector * sectors_per_cluster);
-	
-	println!("\n\nCLUSTER {}: {:?}\n", cluster.number(), buf);
 
 	Ok(())
     }
@@ -501,8 +501,6 @@ mod tests {
 	let mut cluster = Cluster::from(2);
 	let mut read = vfat.lock(|v| v.read_chain(cluster, &mut buf)).unwrap();
 
-	println!("read_chain() returned");
-	
 	assert_eq!(buf[0..4], [99,2,2,2]);
 	assert_eq!(buf[100..108], [3,4,5,6,7,8,9,10]);
 	assert_eq!(buf[1024..1028], [33,2,2,2]);

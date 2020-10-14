@@ -187,7 +187,7 @@ impl MasterBootRecord {
 	Ok(mbr)
     }
 
-        pub fn first_pte(&self) -> PartitionEntry {
+    pub fn first_pte(&self) -> PartitionEntry {
 	self.pte_first
     }
 
