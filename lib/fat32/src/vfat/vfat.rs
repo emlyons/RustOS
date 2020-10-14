@@ -10,6 +10,7 @@ use shim::ioerr;
 use shim::newioerr;
 use shim::path;
 use shim::path::Path;
+use shim::path::Component;
 
 use crate::mbr::MasterBootRecord;
 use crate::traits::{BlockDevice, FileSystem};
@@ -32,7 +33,7 @@ pub struct VFat<HANDLE: VFatHandle> {
     sectors_per_fat: u32,
     fat_start_sector: u64,
     data_start_sector: u64,
-    rootdir_cluster: Cluster,
+    root: Cluster,
 }
 
 impl<HANDLE: VFatHandle> VFat<HANDLE> {
@@ -60,15 +61,44 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	    sectors_per_fat: ebpb.num_sectors_per_fat(),
 	    fat_start_sector: ebpb.fat_start() as u64,
 	    data_start_sector:  ebpb.fat_start() as u64 + ebpb.num_sectors_per_fat() as u64 * ebpb.num_fats() as u64,
-	    rootdir_cluster: Cluster::from(ebpb.root_cluster()),
+	    root: Cluster::from(ebpb.root_cluster()),
 	};
 
 	Ok(VFatHandle::new(vfat))
     }
 
+    /// Size of a cluster in bytes
+    pub fn cluster_size(&mut self) -> u32 {
+	self.sectors_per_cluster as u32 * self.bytes_per_sector as u32
+    }
+
+    pub fn root_cluster(&mut self) -> Cluster {
+	self.root
+    }
+
+    /// returns the next cluster in the chain. If cluster if last in chain return Err
+    pub fn next_cluster(&mut self, cluster: Cluster) -> io::Result<Cluster> {
+	let fat_entry = self.fat_entry(cluster)?;
+	match fat_entry.status() {
+	    Status::Data(next) => Ok(next),
+	    _ => Err(io::Error::new(io::ErrorKind::Interrupted, "no next cluster")),
+	}
+    }
+    
+    /// find the cluster in dir/file starting at ROOT_CLUSTER where the byte OFFSET is stored
+    /// runs in O(N)
+    pub fn find_cluster(&mut self, offset: usize) -> io::Result<Cluster> {
+	let distance = offset / self.cluster_size() as usize;
+	let mut cluster: Cluster = self.root;
+	for n in 0..distance {
+	    cluster = self.next_cluster(cluster)?;
+	}
+	Ok(cluster)
+    }
+
     //  * A method to read from an offset of a cluster into a buffer.
     //
-    fn read_cluster(&mut self, cluster: Cluster, offset: usize, buf: &mut [u8]) -> io::Result<usize> {
+    pub fn read_cluster(&mut self, cluster: Cluster, offset: usize, buf: &mut [u8]) -> io::Result<usize> {
 	if !cluster.is_valid() {
 	    return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid cluster request into FAT table"));
 	}
@@ -96,13 +126,12 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
     //  * A method to read all of the clusters chained from a starting cluster
     //    into a vector.
     //
-    fn read_chain(&mut self, start: Cluster, buf: &mut Vec<u8>) -> io::Result<usize> {
+    pub fn read_chain(&mut self, start: Cluster, buf: &mut Vec<u8>) -> io::Result<usize> {
 	let cluster_size: usize = self.bytes_per_sector as usize * self.sectors_per_cluster as usize;
 	let mut current_cluster = start;
 	let mut bytes_read = 0;
 	loop {
 	    let entry = self.fat_entry(current_cluster)?;
-	    println!("fat entry: {:?}", entry);
 	    match entry.status() {
 		Status::Data(next_cluster) => {
 		    buf.resize(bytes_read + cluster_size, 0);
@@ -123,18 +152,15 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 		Status::Bad => {
 		    return Err(io::Error::new(io::ErrorKind::InvalidData, "bad cluster could not be read"));
 		},
-		_ => unreachable!(),
 	    }
 	}
-	
-	panic!()
-	//return Err(io::Error::new(io::ErrorKind::InvalidInput, "unimplemented"));
+	unreachable!();
     }
     
     //  * A method to return a reference to a `FatEntry` for a cluster where the
     //    reference points directly into a cached sector.
     //
-    pub fn fat_entry(&mut self, cluster: Cluster) -> io::Result<&FatEntry> {
+    fn fat_entry(&mut self, cluster: Cluster) -> io::Result<&FatEntry> {
 	if !cluster.is_valid() {
 	    return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid cluster request into FAT table"));
 	}
@@ -153,15 +179,50 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 }
 
 impl<'a, HANDLE: VFatHandle> FileSystem for &'a HANDLE {
-    type File = crate::traits::Dummy;
-    type Dir = crate::traits::Dummy;
-    type Entry = crate::traits::Dummy;
+    type File = File<HANDLE>;
+    type Dir = Dir<HANDLE>;
+    type Entry = Entry<HANDLE>;
 
     fn open<P: AsRef<Path>>(self, path: P) -> io::Result<Self::Entry> {
-        unimplemented!("FileSystem::open()")
+	use crate::traits::Entry;
+	let mut entries = Vec::new();
+
+	for component in path.as_ref().components() {
+	    match component {
+		Component::RootDir => {
+		    entries.truncate(0);
+		    entries.push(Dir::root(self));
+		},
+		Component::CurDir => {},
+		Component::ParentDir => {
+		    entries.pop();
+		    if entries.len() == 0 {
+			entries.push(Dir::root(self));
+		    }
+		},
+		Component::Normal(name) => {
+		    if let Some(directory) = entries.last().expect("empty path").as_dir() {
+			let entry = directory.find(name)?;
+			entries.push(entry);
+		    }
+		    else {
+			return Err(io::Error::new(io::ErrorKind::InvalidInput, "no file specified"));
+		    }
+		},
+		_ => {
+		    return Err(io::Error::new(io::ErrorKind::InvalidInput, "encountered invalid path component"));
+		},
+	    }
+	}
+
+	if let Some(last_entry) = entries.into_iter().last() {
+	    Ok(last_entry)
+	}
+	else {
+	    Err(io::Error::from(io::ErrorKind::NotFound))
+	}
     }
 }
-
 
 
 
@@ -370,14 +431,14 @@ mod tests {
 	let sectors_per_fat = vfat.lock(|v| v.sectors_per_fat);
 	let fat_start_sector = vfat.lock(|v| v.fat_start_sector);
 	let data_start_sector = vfat.lock(|v| v.data_start_sector);
-	let rootdir_cluster = vfat.lock(|v| v.rootdir_cluster);
+	let root = vfat.lock(|v| v.root);
 
 	assert_eq!(bytes_per_sector, 1024);
 	assert_eq!(sectors_per_cluster, 2);
 	assert_eq!(sectors_per_fat, 1);
 	assert_eq!(fat_start_sector, 1);
 	assert_eq!(data_start_sector, 2);
-	assert_eq!(rootdir_cluster.number(), 2);
+	assert_eq!(root.number(), 2);
 
 	Ok(())
     }
@@ -452,6 +513,77 @@ mod tests {
 	assert_eq!(buf[5120..5124], [33,3,3,3]);
 
 	assert_eq!(read, 3 * bytes_per_sector * sectors_per_cluster);
+	
+	Ok(())
+    }
+
+    #[test]
+    fn test_vfat_next() -> Result<(), String> {
+	let block_device = get_block();
+
+	let vfat = VFat::<StdVFatHandle>::from(block_device).expect("failed to initialize VFAT from image");
+	let bytes_per_sector = vfat.lock(|v| v.bytes_per_sector) as usize;
+	let sectors_per_cluster = vfat.lock(|v| v.sectors_per_cluster) as usize;
+
+	let mut buf: Vec<u8> = Vec::new();
+	
+	let mut cluster = vfat.lock(|v| v.root_cluster());
+	assert_eq!(cluster.number(), 2);
+	
+	cluster = vfat.lock(|v| v.next_cluster(cluster).unwrap());
+	assert_eq!(cluster.number(), 4);
+
+	cluster = vfat.lock(|v| v.next_cluster(cluster).unwrap());
+	assert_eq!(cluster.number(), 3);
+
+	if let Ok(no_cluster) = vfat.lock(|v| v.next_cluster(cluster)) {
+	    panic!("should have returned None as cluster chain has ended");
+	} 
+
+	Ok(())
+    }
+
+    #[test]
+    fn test_vfat_find_cluster() -> Result<(), String> {
+	let block_device = get_block();
+
+	let vfat = VFat::<StdVFatHandle>::from(block_device).expect("failed to initialize VFAT from image");
+	let cluster_size = vfat.lock(|v| v.cluster_size()) as usize;	
+	assert_eq!(cluster_size, 2048);
+	
+	for offset in 0..cluster_size * 3 {
+	    let cluster = vfat.lock(|v| v.find_cluster(offset)).expect("should return valid cluster");
+	    match offset {
+		0 ..= 2047 => {
+		    assert_eq!(cluster.number(), 2);
+		},
+		2048 ..= 4095 => {
+		    assert_eq!(cluster.number(), 4);
+		},
+		4096 ..= 6143 => {
+		    assert_eq!(cluster.number(), 3);
+		},
+		_ => unreachable!(),
+	    };
+	}
+
+	let result = vfat.lock(|v| v.find_cluster(6144));
+	assert!(result.is_err());	    
+	
+	Ok(())
+    }
+
+
+    #[test]
+    fn test_vfat_parse_path() -> Result<(), String> {
+	let block_device = get_block();
+
+	let vfat = VFat::<StdVFatHandle>::from(block_device).expect("failed to initialize VFAT from image");
+
+	let mut path = Path::new("/tmp/foo.txt");
+
+	let result = vfat.open(path);
+	assert!(result.is_ok());
 	
 	Ok(())
     }
