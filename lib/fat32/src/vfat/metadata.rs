@@ -108,17 +108,17 @@ fn truncate_bits(val: u16, least_sigbit: u16, num_bits: u16) -> u16 {
 impl traits::Timestamp for Timestamp {
 
     /// The calendar year.
-    /// 7 bits
-    /// The year is not offset. 2009 is 2009.
+    /// 5-bits
+    /// year is offset from 0 == 1980.
     fn year(&self) -> usize {
-	truncate_bits(self.date.0, 9, 7) as usize
+	truncate_bits(self.date.0, 9, 5) as usize
     }
 
     /// The calendar month, starting at 1 for January. Always in range [1, 12].
-    /// 4-bits
+    /// 5-bits
     /// January is 1, Feburary is 2, ..., December is 12.
     fn month(&self) -> u8 {
-	truncate_bits(self.date.0, 5, 4) as u8
+	truncate_bits(self.date.0, 5, 5) as u8
     }
 
     /// 5-bits
@@ -127,16 +127,16 @@ impl traits::Timestamp for Timestamp {
 	truncate_bits(self.date.0, 0, 5) as u8
     }
 
-    /// 5-bits
+    /// 6-bits
     /// The 24-hour hour. Always in range [0, 24).
     fn hour(&self) -> u8 {
-	truncate_bits(self.date.0, 11, 5) as u8
+	truncate_bits(self.date.0, 9, 7) as u8
     }
 
-    /// 6-bits
+    /// 4-bits
     /// The minute. Always in range [0, 60).
     fn minute(&self) -> u8 {
-	truncate_bits(self.date.0, 5, 6) as u8
+	truncate_bits(self.date.0, 5, 4) as u8
     }
 
     /// 5-bits
