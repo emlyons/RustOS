@@ -233,14 +233,16 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 	}
     
 	// increment iterator
-	self.entry_offset += 1;
+	self.entry_offset += 1;	
+	println!("\n\nfile number: {}\n\n", self.entry_offset);
 
 	// deleted entry
 	if (entry.file_name[0] == 0xE5 || entry.file_name[0] == 0x00) {
 	    return None;
 	}
-
+	
 	let name = entry.name();
+	println!("\n\nname: {:?}\n\n", name);
 	
 	if entry.metadata.attributes.directory() {
 	    let dir_entry = Entry::_Dir(Dir {
@@ -278,19 +280,26 @@ impl <HANDLE: VFatHandle> Iterator for DirIterator<HANDLE> {
 	    // determine type of entry
 	    let mut unknown_entry: &VFatUnknownDirEntry = unsafe {
 		&self.entries[self.entry_offset].unknown
+
 	    };
+	    
 	    // attempt to parse entry
 	    if let Some(entry) = {
+		// parse LFN
 		if unknown_entry.attributes.lfn() {
+		    println!("\nparsing lfn with: {}", self.entry_offset);
 		    self.parse_lfn()
 		} else {
+		    println!("\nparsing regular with: {}", self.entry_offset);
 		    self.parse_reg(String::from(""))
 		}
 	    } {
 		// return parsed entry or continue to next entry...
+		println!("\returning with: {}", self.entry_offset);
 		return Some(entry);
 	    }	 
 	}
+	println!("\n failed with: {}", self.entry_offset);
 	return None;
     }
 }
@@ -526,7 +535,7 @@ mod tests {
 		]
 	    );
 	    
-	    // need entry for file 2
+	    // entry for file 2
 	    data[cluster_two + 32..cluster_two + 32 + 32].copy_from_slice(
 		&[0x4E, 0x4F, 0x00, 0x00, 0xFF, 0x32, 0xEC, 0x9A, // file name
 		  0x74, 0x78, 0x74, // file extenstion
@@ -544,9 +553,33 @@ mod tests {
 		]
 	    );
 	    
-	    // need entry for file 3
+	    // LFN entry for file 3
 	    data[cluster_two + 32 + 32..cluster_two + 32 + 32 + 32].copy_from_slice(
-		&[0x65, 0x72, 0x69, 0x6E, 0x00, 0x00, 0x00, 0x00, // file name
+		&[0x01,// sequence number
+		  0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A,//name_chars_first
+		  0x0F,// attributes
+		  0x00,// type
+		  0, //DOS checksum
+		  0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56,//name_chars_second
+		  0x00, 0x00,//always 0 for LFN
+		  0x57, 0x58, 0x59, 0x5A,//name_chars_third
+		]
+	    );
+
+	    data[cluster_two + 32 + 32 + 32..cluster_two + 32 + 32 + 32 + 32].copy_from_slice(
+		&[0x02,// sequence number
+		  0x7A, 0x79, 0x78, 0x77, 0x76, 0x75, 0x74, 0x73, 0x72, 0x71,//name_chars_first
+		  0x0F,// attributes
+		  0x00,// type
+		  0, //DOS checksum
+		  0x70, 0x6F, 0x6E, 0x6D, 0x6C, 0x6B, 0x6A, 0x69, 0x68, 0x67, 0x66, 0x65,//name_chars_second
+		  0x00, 0x00,//always 0 for LFN
+		  0x64, 0x63, 0x62, 0x61,//name_chars_third
+		]
+	    );
+
+	    data[cluster_two + 32 + 32 + 32 + 32..cluster_two + 32 + 32 + 32 + 32 + 32].copy_from_slice(
+		&[0x65, 0x72, 0x69, 0x6E, 0x00, 0x00, 0x00, 0x00, // file name short
 		  0x74, 0x78, 0x74, // file extenstion
 		  0x01, // attributes
 		  0x00, // reserved

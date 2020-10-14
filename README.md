@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # rust-os-cs140e
 ## An Experimental Course on Operating Systems
 
@@ -104,16 +103,17 @@ Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignment
 
 
 ### Phase 0: Getting Started
-- [ ] Getting the Skeleton Code
-- [ ] Firmware Update
-- [ ] Installing ttywrite
+- [x] Getting the Skeleton Code
 
 ### Phase 1: Memory Lane
-- [ ] Subphase A: Panic!
-- [ ] Subphase B: ATAGS
-- [ ] Subphase C: Warming Up
-- [ ] Subphase D: Bump Allocator
-- [ ] Subphase E: Bin Allocator
+- [x] Subphase A: Panic!
+- [x] Subphase B: ATAGS
+- [x] Subphase C: Warming Up
+- [x] Subphase D: Bump Allocator
+- [x] Subphase E: Bin Allocator
+
+### Phase 2: 32-bit Lipids
+- [ ] Implementation
 
 ### Phase 3: Saddle Up
 - [ ] Subphase A: SD Driver FFI

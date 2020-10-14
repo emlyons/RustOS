@@ -231,6 +231,7 @@ mod tests {
     use super::*;
     use shim::io::Cursor;
     use crate::vfat::VFat;
+    
 
     use std::sync::{Arc, Mutex};
     use std::fmt::{self, Debug};
@@ -573,18 +574,4 @@ mod tests {
 	Ok(())
     }
 
-
-    #[test]
-    fn test_vfat_parse_path() -> Result<(), String> {
-	let block_device = get_block();
-
-	let vfat = VFat::<StdVFatHandle>::from(block_device).expect("failed to initialize VFAT from image");
-
-	let mut path = Path::new("/tmp/foo.txt");
-
-	let result = vfat.open(path);
-	assert!(result.is_ok());
-	
-	Ok(())
-    }
 }
