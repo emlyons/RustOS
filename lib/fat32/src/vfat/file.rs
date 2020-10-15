@@ -69,13 +69,9 @@ impl <HANDLE:VFatHandle> io::Read for File<HANDLE> {
 
 	while (bytes_read as u32) < bytes_to_read {
 	    let offset = (self.position % bytes_per_cluster);
-	    let bytes_left_in_cluster = bytes_per_cluster - offset;
-	    
-	    bytes_read += self.vfat.lock(|v| v.read_cluster(self.current_cluster, offset as usize, &mut _buf[bytes_read..]))?;
-	    
-	    self.seek(SeekFrom::Current(bytes_read as i64));
-	    println!("{}", bytes_read);
-	    //panic!();		
+	    let new_bytes = self.vfat.lock(|v| v.read_cluster(self.current_cluster, offset as usize, &mut _buf[bytes_read..bytes_to_read as usize]))?;
+	    self.seek(SeekFrom::Current(new_bytes as i64));
+	    bytes_read += new_bytes;
 	}
 	Ok(bytes_read as usize)
     }
@@ -105,7 +101,7 @@ impl<HANDLE: VFatHandle> io::Seek for File<HANDLE> {
 	    SeekFrom::Current(offset) => {long_pos = add_signed_unsigned(self.position as u64, offset);},
 	}
 
-	if long_pos >= self.size as u64 {
+	if long_pos > self.size as u64 {
 	    return Err(io::Error::new(io::ErrorKind::InvalidInput, "cannot seek after end of file"));
 	}
 	let pos = long_pos as u32;
@@ -115,9 +111,14 @@ impl<HANDLE: VFatHandle> io::Seek for File<HANDLE> {
 	let start_of_current_cluster = self.position - (self.position % bytes_per_cluster);
 	let start_of_next_cluster = self.position + (bytes_per_cluster - (self.position % bytes_per_cluster));
 	let end_of_next_cluster = start_of_next_cluster + bytes_per_cluster - 1;
-	if start_of_current_cluster <= pos && pos < start_of_next_cluster {
+	if pos == self.size {
+	    // end of file
+	    self.current_cluster = self.vfat.lock(|v| v.offset_cluster(self.cluster, pos as usize - 1))?;
+	}
+	else if start_of_current_cluster <= pos && pos < start_of_next_cluster {
 	    // same cluster
-	} else if start_of_next_cluster <= pos && pos <= end_of_next_cluster {
+	}
+	else if start_of_next_cluster <= pos && pos <= end_of_next_cluster {
 	    // if next cluster in sequence, do a fast get
 	    self.current_cluster = self.vfat.lock(|v| v.next_cluster(self.current_cluster))?;
 	}

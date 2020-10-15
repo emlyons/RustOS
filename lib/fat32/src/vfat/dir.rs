@@ -767,7 +767,7 @@ mod tests {
 	let root_dir = _root.as_dir().unwrap();
 	map_dir(root_dir, String::from(""));
 	
-	panic!();
+	Ok(())
     }
 
     #[test]
@@ -865,16 +865,18 @@ mod tests {
 	let mut offset_cluster = file.cluster;
 	let mut cmp_cluster = file.cluster;
 	let cluster_size = vfat.lock(|v| v.cluster_size()) as usize;
+	let mut current_cluster = offset / cluster_size;
 	
 	while (offset as u64) < file.size() {
-	    if offset % cluster_size == 0 {
+	    if offset / cluster_size > current_cluster {
+		current_cluster = offset / cluster_size;
 		cmp_cluster = vfat.lock(|v| v.next_cluster(cmp_cluster)).unwrap();
 	    }
 	    
 	    offset_cluster = vfat.lock(|v| v.offset_cluster(start_cluster, offset)).unwrap();
 	    assert_eq!(offset_cluster, cmp_cluster);
 	    
-	    offset += 1;
+	    offset += 10;
 	}
 	Ok(())
     }
@@ -924,8 +926,18 @@ mod tests {
 	let cluster = vfat.lock(|v| v.offset_cluster(file.cluster, file.position as usize)).unwrap();
 	assert_eq!(file.current_cluster, cluster);
 
-	// seeking past end of file
+	// longest seek possible
 	seek_size = file.size() as i64;
+	file.position = 0;
+	file.current_cluster = file.cluster;
+	position = file.seek(SeekFrom::Current(seek_size)).unwrap();
+	assert_eq!(file.position as u64, position);
+	assert_eq!(file.position, seek_size as u32);
+	let cluster = vfat.lock(|v| v.offset_cluster(file.cluster, file.position as usize - 1)).unwrap();
+	assert_eq!(file.current_cluster, cluster);
+	
+	// seeking past end of file
+	seek_size = file.size() as i64 + 1;
 	file.position = 0;
 	file.current_cluster = file.cluster;
 	let result = file.seek(SeekFrom::Current(seek_size));
@@ -949,8 +961,6 @@ mod tests {
 	let mut dir = entry.into_dir().unwrap();
 	let mut file = dir.find("RPi3-Schematics.pdf").expect("failed to find file in sub directory").into_file().unwrap();
 
-	
-	
 	// attempt to read from file
 	let mut buffer = vec![0; file.size() as usize];
 	let mut total_bytes = 0;
@@ -963,8 +973,7 @@ mod tests {
 	}
 	println!("bytes read: {}", total_bytes);
 	assert_eq!(total_bytes as u64, file.size());
-	panic!()
-	//Ok(())
+	Ok(())
     }
 
 }
