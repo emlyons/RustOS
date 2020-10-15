@@ -285,7 +285,6 @@ impl <HANDLE: VFatHandle> Iterator for DirIterator<HANDLE> {
     
     fn next(&mut self) -> Option<Self::Item> {
 	while (self.entry_offset < self.entries.len()) {
-
 	    // determine type of entry
 	    let mut unknown_entry: &VFatUnknownDirEntry = unsafe {
 		&self.entries[self.entry_offset].unknown
@@ -301,6 +300,7 @@ impl <HANDLE: VFatHandle> Iterator for DirIterator<HANDLE> {
 		    self.parse_reg(String::from(""))
 		}
 	    } {
+		use traits::Entry;
 		// return parsed entry or continue to next entry...
 		return Some(entry);
 	    }	 
