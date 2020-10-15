@@ -113,7 +113,7 @@ Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignment
 - [x] Subphase E: Bin Allocator
 
 ### Phase 2: 32-bit Lipids
-- [ ] Implementation
+- [x] Implementation
 
 ### Phase 3: Saddle Up
 - [ ] Subphase A: SD Driver FFI
@@ -123,21 +123,6 @@ Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignment
 - [ ] Working Directory
 - [ ] Commands
 - [ ] Implementation
-
-=======
-# CS3210 Lab assignments
-
-This repository contains lab assignments for Georgia Tech CS3210 "Design of Operating Systems".
-The latest course material is available [here](https://tc.gts3.org/cs3210/2020/spring/index.html).
-
-## Who should take CS3210?
-
-- Anyone wants to work on challenges in operating systems
-- Anyone cares about what's going on under the hood
-- Anyone has to build high-performance systems (e.g., Cloud, Trading)
-- Anyone wants to build embedded/IoT firmware (e.g., Robot)
-- Anyone needs to diagnose bugs or security problems
->>>>>>> skeleton/lab3
 
 ## Why Rust?
 
