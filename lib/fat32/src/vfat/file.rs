@@ -74,6 +74,8 @@ impl <HANDLE:VFatHandle> io::Read for File<HANDLE> {
 	    bytes_read += self.vfat.lock(|v| v.read_cluster(self.current_cluster, offset as usize, &mut _buf[bytes_read..]))?;
 	    
 	    self.seek(SeekFrom::Current(bytes_read as i64));
+	    println!("{}", bytes_read);
+	    //panic!();		
 	}
 	Ok(bytes_read as usize)
     }
@@ -121,11 +123,12 @@ impl<HANDLE: VFatHandle> io::Seek for File<HANDLE> {
 	}
 	else {
 	    // if not, linear lookup of cluster
-	    self.current_cluster = self.vfat.lock(|v| v.find_cluster(pos as usize))?;
+	    self.current_cluster = self.vfat.lock(|v| v.offset_cluster(self.cluster, pos as usize))?;
 	}
 
 	// update file byte offset
 	self.position = pos;
+
 	Ok(pos as u64)
     }
 }

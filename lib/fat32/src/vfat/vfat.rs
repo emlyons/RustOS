@@ -85,15 +85,16 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	}
     }
     
-    /// find the cluster in dir/file starting at ROOT_CLUSTER where the byte OFFSET is stored
-    /// runs in O(N)
-    pub fn find_cluster(&mut self, offset: usize) -> io::Result<Cluster> {
+    /// offsets a number of bytes into a chain from the start of CLUSTER
+    /// return error if offset is beyond the end of the cluster chain
+    pub fn offset_cluster(&mut self, cluster: Cluster, offset: usize) -> io::Result<Cluster> {
+	use crate::traits::{Entry, Metadata};
 	let distance = offset / self.cluster_size() as usize;
-	let mut cluster: Cluster = self.root;
+	let mut current_cluster = cluster;
 	for n in 0..distance {
-	    cluster = self.next_cluster(cluster)?;
+	    current_cluster = self.next_cluster(current_cluster)?;
 	}
-	Ok(cluster)
+	Ok(current_cluster)
     }
 
     //  * A method to read from an offset of a cluster into a buffer.
@@ -118,10 +119,6 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	    bytes_read += read_size;
 	    sector += 1;
 	    byte_offset = 0;
-	}
-
-	if cluster.number() == 2 {
-	    
 	}
 	Ok(bytes_read)
     }
@@ -172,11 +169,9 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
 	let entry = self.fat_entry(cluster)?;
 	match entry.status() {
 	    Status::Data(next_cluster) => {
-		println!("\n\n next_cluster: {} \n\n", next_cluster.number());
 		Ok(Some(next_cluster))
 	    },
 	    Status::Eoc(_) => {
-		println!("\n\n eoc \n\n");
 		Ok(None)
 	    },
 	    Status::Free => {
@@ -290,6 +285,25 @@ mod tests {
 	fn lock<R>(&self, f: impl FnOnce(&mut VFat<StdVFatHandle>) -> R) -> R {
             f(&mut self.0.lock().expect("all okay"))
 	}
+    }
+
+    macro resource($name:expr) {{
+	let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../ext/fat32-imgs/", $name);
+	match ::std::fs::File::open(path) {
+            Ok(file) => file,
+            Err(e) => {
+		eprintln!(
+                    "\nfailed to find assignment 2 resource '{}': {}\n\
+                     => perhaps you need to run 'make fetch'?",
+                    $name, e
+		);
+		panic!("missing resource");
+            }
+	}
+    }}
+
+    macro vfat_from_resource($name:expr) {
+	VFat::<StdVFatHandle>::from(resource!($name)).expect("failed to initialize VFAT from image")
     }
 
     fn get_block() -> Cursor<&'static mut[u8]> {
@@ -572,35 +586,4 @@ mod tests {
 
 	Ok(())
     }
-
-    #[test]
-    fn test_vfat_find_cluster() -> Result<(), String> {
-	let block_device = get_block();
-
-	let vfat = VFat::<StdVFatHandle>::from(block_device).expect("failed to initialize VFAT from image");
-	let cluster_size = vfat.lock(|v| v.cluster_size()) as usize;	
-	assert_eq!(cluster_size, 2048);
-	
-	for offset in 0..cluster_size * 3 {
-	    let cluster = vfat.lock(|v| v.find_cluster(offset)).expect("should return valid cluster");
-	    match offset {
-		0 ..= 2047 => {
-		    assert_eq!(cluster.number(), 2);
-		},
-		2048 ..= 4095 => {
-		    assert_eq!(cluster.number(), 4);
-		},
-		4096 ..= 6143 => {
-		    assert_eq!(cluster.number(), 3);
-		},
-		_ => unreachable!(),
-	    };
-	}
-
-	let result = vfat.lock(|v| v.find_cluster(6144));
-	assert!(result.is_err());	    
-	
-	Ok(())
-    }
-
 }

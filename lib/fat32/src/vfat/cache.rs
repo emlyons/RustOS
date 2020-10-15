@@ -316,14 +316,10 @@ mod tests {
 	    let result = cache.get(3).expect("failed to read");
 	    assert_eq!(result[100], 0x33);
 	    assert_eq!(result[645], 0x42);
-	    println!(" {:?} ", result);
 
 	    if let Err(_) = cache.read_sector(3, &mut buf) {
 		panic!("\n\nread cached sector\n\n")
 	    }
-
-	    println!("\n\n{}\n\n", cache.factor());
-
 	}
 	Ok(())
     }

@@ -668,19 +668,6 @@ mod tests {
 	let root_dir = _root.as_dir().unwrap();
 	let mut iter = root_dir.get_iter();
 
-	/*
-	let mut count = 0;
-	loop {
-	    count += 1;
-	    match root_dir.get_next(&mut iter) {
-		Some(entry) => {
-		    println!("\nfile_{}: {}", count, entry.name());
-		},
-		None => break,
-	    }
-	}
-	 */
-
 	// Regular Entry
 	let mut file = root_dir.get_next(&mut iter).unwrap();
 	assert_eq!(file.name(), String::from("hello.txt"));
@@ -703,8 +690,7 @@ mod tests {
 	assert_eq!(file.metadata().file_size(), 2048);
 	assert!(file.is_file());
 	println!("\nthird file: {}", file.name());
-	
-	
+		
 	Ok(())
     }
 
@@ -730,14 +716,64 @@ mod tests {
 	VFat::<StdVFatHandle>::from(resource!($name)).expect("failed to initialize VFAT from image")
     }
 
+    // recursively traversed file system and prints the tree structure
+    fn map_dir(mut dir: &Dir<StdVFatHandle>, indent: String) {
+	use traits::Entry;
+	let mut iter = dir.get_iter();
+	loop {
+	    match dir.get_next(&mut iter) {
+		Some(entry) => {
+		    if let Some(sub_dir) = entry.as_dir() {
+			print!("-d-");
+			println!("{}/{}", indent, entry.name());
+			if !(sub_dir.name() == ".") && !(sub_dir.name() == "..") {
+			    let mut new_indent = String::from("         ");
+			    new_indent.push_str(&indent);
+			    map_dir(sub_dir, new_indent);
+			}
+		    }
+		    else if let Some(file) = entry.as_file() {
+			print!("--f");
+			println!("{}{}", indent, entry.name());
+		    }
+		    else {
+			unreachable!();
+		    }
+		},
+		None => break,
+	    }
+	}
+    }
+
+    #[test]
+    fn test_map_images() -> Result<(), String> {
+	use traits::Entry;
+
+	println!("\n\n\n\nMOCK 1 FAT IMAGE");
+	let vfat = vfat_from_resource!("mock1.fat32.img");
+	let _root = Dir::root(&vfat);
+	let root_dir = _root.as_dir().unwrap();
+	map_dir(root_dir, String::from(""));
+
+	println!("\n\n\n\nMOCK 2 FAT IMAGE");
+	let vfat = vfat_from_resource!("mock2.fat32.img");
+	let _root = Dir::root(&vfat);
+	let root_dir = _root.as_dir().unwrap();
+	map_dir(root_dir, String::from(""));
+
+	println!("\n\n\n\nMOCK 3 FAT IMAGE");
+	let vfat = vfat_from_resource!("mock3.fat32.img");
+	let _root = Dir::root(&vfat);
+	let root_dir = _root.as_dir().unwrap();
+	map_dir(root_dir, String::from(""));
+	
+	panic!();
+    }
+
     #[test]
     fn test_img1() -> Result<(), String> {
 	use traits::Entry;
-	let block_device = get_block();
-
-	
 	let vfat = vfat_from_resource!("mock1.fat32.img");
-
 
 	let bytes_per_sector = vfat.lock(|v| v.bytes_per_sector);
 	assert_eq!(bytes_per_sector, 512);
@@ -754,31 +790,181 @@ mod tests {
 	let data_start_sector = vfat.lock(|v| v.data_start_sector);
 	assert_eq!(data_start_sector, 6082);
 	
- //   fat_start_sector: u64,
- //   data_start_sector: u64,
- //   root: Cluster,
-	
-//	let vfat = VFat::<StdVFatHandle>::from(block_device).expect("failed to initialize VFAT from image");
 	let _root = Dir::root(&vfat);
 	let root_dir = _root.as_dir().unwrap();
-
-	println!("get iter");
 	let mut iter = root_dir.get_iter();
-	println!("got iter");
-	/*
+	
+	// expected valued
+	let names = vec!["CS140E", "rpi3-docs", "solutions", "NOTES"];
+	let is_dir = vec![false, true, true, true];
+	
 	let mut count = 0;
 	loop {
-	    count += 1;
 	    match root_dir.get_next(&mut iter) {
 		Some(entry) => {
-		    println!("\nfile_{}: {}", count, entry.name());
+		    assert_eq!(entry.name(), names[count]);
+		    assert_eq!(entry.is_dir(), is_dir[count]);
+		    if let Some(dir) = entry.as_dir() {
+			println!("\ndir_{}: {}", count, entry.name());
+		    }
+		    else if let Some(file) = entry.as_file() {
+			println!("\nfile_{}: {}", count, entry.name());
+		    }
+		    else {
+			unreachable!();
+		    }
+		},
+		None => break,
+	    }
+	    count += 1;
+	}
+
+	// lets search a sub directory
+	let mut sub_dir = root_dir.find("rpi3-docs").expect("failed to find rpi3_docs in root directory").into_dir().unwrap();	
+	iter = sub_dir.get_iter();
+	loop {
+	    match sub_dir.get_next(&mut iter) {
+		Some(entry) => {
+		    if let Some(dir) = entry.as_dir() {
+			println!("\ndir: {}", entry.name());
+		    }
+		    else if let Some(file) = entry.as_file() {
+			println!("\nfile: {}", entry.name());
+		    }
+		    else {
+			unreachable!();
+		    }
 		},
 		None => break,
 	    }
 	}
-	 */
+
+	Ok(())
+    }
+
+    #[test]
+    fn test_offset_cluster() -> Result<(), String> {
+	use traits::{Entry, File, Metadata};
+	use std::io::Read;
+	use shim::io::Seek;
+	use shim::io::SeekFrom;
+	use crate::vfat;
+	
+	let vfat = vfat_from_resource!("mock1.fat32.img");
+	let _root = Dir::root(&vfat);
+	let root_dir = _root.as_dir().unwrap();
+
+	// get file from root directory
+	let mut entry = root_dir.find("rpi3-docs").expect("failed to find directory");
+	let mut dir = entry.into_dir().unwrap();
+	let mut file_entry = dir.find("RPi3-Schematics.pdf").expect("failed to find file in sub directory");
+	let mut file = dir.find("RPi3-Schematics.pdf").expect("failed to find file in sub directory").into_file().unwrap();
+	
+	let mut offset: usize = 1;
+	let start_cluster = file.cluster;
+	let mut offset_cluster = file.cluster;
+	let mut cmp_cluster = file.cluster;
+	let cluster_size = vfat.lock(|v| v.cluster_size()) as usize;
+	
+	while (offset as u64) < file.size() {
+	    if offset % cluster_size == 0 {
+		cmp_cluster = vfat.lock(|v| v.next_cluster(cmp_cluster)).unwrap();
+	    }
+	    
+	    offset_cluster = vfat.lock(|v| v.offset_cluster(start_cluster, offset)).unwrap();
+	    assert_eq!(offset_cluster, cmp_cluster);
+	    
+	    offset += 1;
+	}
+	Ok(())
+    }
+
+    #[test]
+    fn test_seek_file() -> Result<(), String> {
+	use traits::{Entry, File, Metadata};
+	use std::io::Read;
+	use shim::io::Seek;
+	use shim::io::SeekFrom;
+	use crate::vfat;
+	
+	let vfat = vfat_from_resource!("mock1.fat32.img");
+	let _root = Dir::root(&vfat);
+	let root_dir = _root.as_dir().unwrap();
+
+	// get file from root directory
+	let mut entry = root_dir.find("rpi3-docs").expect("failed to find directory");
+	let mut dir = entry.into_dir().unwrap();
+	let mut file = dir.find("RPi3-Schematics.pdf").expect("failed to find file in sub directory").into_file().unwrap();
+
+	
+	let mut position: u64 = 0;
+	let mut seek_size: i64 = 16;
+	while seek_size < file.size() as i64 {
+	    let mut seek_position: u64 = 0;
+	    file.position = 0;
+	    file.current_cluster = file.cluster;
+	    while (file.position as u64 + seek_size as u64) < file.size() {
+		position = file.seek(SeekFrom::Current(seek_size)).unwrap();
+		seek_position += seek_size as u64;
+		assert_eq!(file.position as u64, seek_position);
+		let cluster = vfat.lock(|v| v.offset_cluster(file.cluster, file.position as usize)).unwrap();
+		assert_eq!(file.current_cluster, cluster);
+	    }
+	    println!("{}", seek_size);
+	    seek_size = seek_size * 2;
+	}
+
+	// longest seek possible
+	seek_size = file.size() as i64 - 1;
+	file.position = 0;
+	file.current_cluster = file.cluster;
+	position = file.seek(SeekFrom::Current(seek_size)).unwrap();
+	assert_eq!(file.position as u64, position);
+	assert_eq!(file.position, seek_size as u32);
+	let cluster = vfat.lock(|v| v.offset_cluster(file.cluster, file.position as usize)).unwrap();
+	assert_eq!(file.current_cluster, cluster);
+
+	// seeking past end of file
+	seek_size = file.size() as i64;
+	file.position = 0;
+	file.current_cluster = file.cluster;
+	let result = file.seek(SeekFrom::Current(seek_size));
+	assert!(result.is_err());
 	
 	Ok(())
+    }
+
+    #[test]
+    fn test_read_file() -> Result<(), String> {
+	use traits::{Entry, File, Metadata};
+	use std::io::Read;
+	use crate::vfat;
+	
+	let vfat = vfat_from_resource!("mock1.fat32.img");
+	let _root = Dir::root(&vfat);
+	let root_dir = _root.as_dir().unwrap();
+
+	// get file from root directory
+	let mut entry = root_dir.find("rpi3-docs").expect("failed to find directory");
+	let mut dir = entry.into_dir().unwrap();
+	let mut file = dir.find("RPi3-Schematics.pdf").expect("failed to find file in sub directory").into_file().unwrap();
+
+	
+	
+	// attempt to read from file
+	let mut buffer = vec![0; file.size() as usize];
+	let mut total_bytes = 0;
+	loop {
+	    let bytes_read = file.read(&mut buffer).expect("failed to read");
+	    total_bytes += bytes_read;
+	    if bytes_read == 0 {
+		break;
+	    }
+	}
+	println!("bytes read: {}", total_bytes);
+	assert_eq!(total_bytes as u64, file.size());
+	panic!()
+	//Ok(())
     }
 
 }
