@@ -132,33 +132,64 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
     //
     pub fn read_chain(&mut self, start: Cluster, buf: &mut Vec<u8>) -> io::Result<usize> {
 	let cluster_size: usize = self.bytes_per_sector as usize * self.sectors_per_cluster as usize;
-	let mut current_cluster = start;
+	let mut tortoise = start;
+	let mut hare: io::Result<Option<Cluster>> = Ok(Some(start));
 	let mut bytes_read = 0;
+
 	loop {
-	    let entry = self.fat_entry(current_cluster)?;
-	    match entry.status() {
-		Status::Data(next_cluster) => {
-		    buf.resize(bytes_read + cluster_size, 0);
-		    bytes_read += self.read_cluster(current_cluster, 0, &mut buf[bytes_read..])?;// read cluster -> add to buf
-		    current_cluster = next_cluster;
-		},
-		Status::Eoc(_) => {
-		    buf.resize(bytes_read + cluster_size, 0);
-		    bytes_read += self.read_cluster(current_cluster, 0, &mut buf[bytes_read..])?;// read cluster -> add to buf
-		    return Ok(bytes_read);
-		},
-		Status::Free => {
-		    return Err(io::Error::new(io::ErrorKind::InvalidData, "attempted to read from free cluster"));
-		},
-		Status::Reserved => {
-		    return Err(io::Error::new(io::ErrorKind::InvalidData, "attempted to read 'reserved' cluster"));
-		},
-		Status::Bad => {
-		    return Err(io::Error::new(io::ErrorKind::InvalidData, "bad cluster could not be read"));
-		},
+	    let result = self.chain_check_cluster(tortoise)?;
+	    buf.resize(bytes_read + cluster_size, 0);
+	    bytes_read += self.read_cluster(tortoise, 0, &mut buf[bytes_read..])?;
+	    if let Some(next_cluster) = result {
+		tortoise = next_cluster;
+	    }
+	    else {
+		return Ok(bytes_read);
+	    }
+	
+	    // increment hare by two clusters (while chain still exists)
+	    for n in 0..2 {
+		if let Ok(option) = hare {
+		    if let Some(cluster) = option {
+			hare = self.chain_check_cluster(cluster);
+		    }
+		}
+	    }
+
+	    // if hare has cluster compare to check for cycle
+	    if let Ok(option) = hare {
+		if let Some(cluster) = option {
+		    if cluster == tortoise {
+			return Err(io::Error::new(io::ErrorKind::InvalidData, "cycle is present in cluster chain"));
+		    }
+		}
 	    }
 	}
 	unreachable!();
+    }
+
+    fn chain_check_cluster(&mut self, cluster: Cluster) -> io::Result<Option<Cluster>> {
+	let entry = self.fat_entry(cluster)?;
+	match entry.status() {
+	    Status::Data(next_cluster) => {
+		println!("\n\n next_cluster: {} \n\n", next_cluster.number());
+		Ok(Some(next_cluster))
+	    },
+	    Status::Eoc(_) => {
+		println!("\n\n eoc \n\n");
+		Ok(None)
+	    },
+	    Status::Free => {
+		Err(io::Error::new(io::ErrorKind::InvalidData, "encountered free cluster"))
+	    },
+	    Status::Reserved => {
+		Err(io::Error::new(io::ErrorKind::InvalidData, "encountered reserved cluster"))
+	    },
+	    Status::Bad => {
+		Err(io::Error::new(io::ErrorKind::InvalidData, "encounterd bad cluster"))
+	    },
+	    _ => unreachable!(),
+	}
     }
     
     //  * A method to return a reference to a `FatEntry` for a cluster where the
