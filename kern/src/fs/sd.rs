@@ -47,8 +47,10 @@ impl Sd {
     /// kernel initialization. We can enforce the requirement in safe Rust code
     /// with atomic memory access, but we can't use it yet since we haven't
     /// written the memory management unit (MMU).
-    pub unsafe fn new() -> Result<Sd, io::Error> {
-	let result = sd_init();
+    pub fn new() -> Result<Sd, io::Error> {
+	let result = unsafe{
+	    sd_init()
+	};
 	if result == 0 {
 	    return Ok(Sd{});
 	}
