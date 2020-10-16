@@ -50,6 +50,7 @@ impl CachedPartition {
         T: BlockDevice + 'static,
     {
         assert!(partition.sector_size >= device.sector_size());
+	assert!(partition.sector_size % device.sector_size() == 0);
 
         CachedPartition {
             device: Box::new(device),
@@ -122,22 +123,25 @@ impl CachedPartition {
     }
 }
 
-// FIXME: Implement `BlockDevice` for `CacheDevice`. The `read_sector` and
+// Implement `BlockDevice` for `CacheDevice`. The `read_sector` and
 // `write_sector` methods should only read/write from/to cached sectors.
 impl BlockDevice for CachedPartition {
     fn sector_size(&self) -> u64 {
 	self.partition.sector_size
     }
 
-    fn read_sector(&mut self, sector: u64, buf: &mut [u8]) -> io::Result<usize> {
-        if self.cache.contains_key(&sector) {
-	    let entry = &self.cache[&sector].data;
-	    let bytes = cmp::min(buf.len(), entry.len());
-	    buf[0..bytes].copy_from_slice(&entry[0..bytes]);
-	    Ok(bytes)
+    fn read_sector(&mut self, sector: u64, buf: &mut [u8]) -> io::Result<usize> {    
+	if (buf.len() as u64) < self.partition.sector_size {
+	    return Err(io::Error::new(io::ErrorKind::InvalidInput, "buffer too small to read sector"));
+	}
+
+	if !self.cache.contains_key(&sector) {
+	    Err(io::Error::new(io::ErrorKind::Other, "attempted to read uncached sector"))
 	}
 	else {
-	    Err(io::Error::new(io::ErrorKind::Other, "read sector requested not in cache"))
+	    let entry = &self.cache[&sector].data;
+	    buf[0..self.partition.sector_size as usize].copy_from_slice(&entry);
+	    Ok(entry.len())
 	}
     }
 
