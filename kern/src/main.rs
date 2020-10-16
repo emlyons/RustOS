@@ -21,7 +21,7 @@ extern crate alloc;
 
 pub mod allocator;
 pub mod console;
-// DEBUG pub mod fs;
+pub mod fs;
 pub mod mutex;
 pub mod shell;
 
@@ -32,11 +32,11 @@ use pi::atags;
 
 
 use allocator::Allocator;
-// DEBUG use fs::FileSystem;
+use fs::FileSystem;
 
 #[cfg_attr(not(test), global_allocator)]
 pub static ALLOCATOR: Allocator = Allocator::uninitialized();
-// DEBUG pub static FILESYSTEM: FileSystem = FileSystem::uninitialized();
+pub static FILESYSTEM: FileSystem = FileSystem::uninitialized();
 
 fn kmain() -> ! {
 
@@ -49,7 +49,7 @@ fn kmain() -> ! {
     
     unsafe {
         ALLOCATOR.initialize();
-    //    FILESYSTEM.initialize();
+        FILESYSTEM.initialize();
     }
     
     kprintln!("

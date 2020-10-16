@@ -5,12 +5,12 @@ use stack_vec::StackVec;
 
 use pi::atags::Atags;
 
-// DEBUG use fat32::traits::FileSystem;
-// DEBUG use fat32::traits::{Dir, Entry};
+use fat32::traits::FileSystem;
+use fat32::traits::{Dir, Entry};
 
 use crate::console::{kprint, kprintln, CONSOLE};
 use crate::ALLOCATOR;
-// DEBUG use crate::FILESYSTEM;
+use crate::FILESYSTEM;
 
 use shim::io::Write;
 use core::str;
