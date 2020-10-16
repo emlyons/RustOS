@@ -28,8 +28,6 @@ use allocator::Allocator;
 use fs::FileSystem;
 use fs::sd::Sd;
 
-//use fat32::traits::BlockDevice;
-
 #[cfg_attr(not(test), global_allocator)]
 pub static ALLOCATOR: Allocator = Allocator::uninitialized();
 pub static FILESYSTEM: FileSystem = FileSystem::uninitialized();
@@ -62,13 +60,6 @@ fn kmain() -> ! {
 Welcome to rustOS on Raspberry Pi!
 ");
 
-   // let mut sd_test: Sd = Sd::new().unwrap();
-   // let mut mbr = [0u8; 512];
-   // let bytes_read = sd_test.read_sector(0, &mut mbr).unwrap();
-   // assert_eq!(bytes_read, 512);
-    
-   // kprintln!("\n\n read {} bytes from SD card.\n\n", bytes_read);
-    //kprintln!("{:?}\n", &mbr[0..512]);
     
     shell::shell("> ");
 }

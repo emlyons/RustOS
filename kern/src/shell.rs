@@ -1,4 +1,3 @@
-use shim::io;
 use shim::path::{Path, PathBuf};
 
 use stack_vec::StackVec;

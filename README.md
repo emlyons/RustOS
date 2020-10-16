@@ -116,8 +116,8 @@ Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignment
 - [x] Implementation
 
 ### Phase 3: Saddle Up
-- [ ] Subphase A: SD Driver FFI
-- [ ] Subphase B: File System
+- [x] Subphase A: SD Driver FFI
+- [x] Subphase B: File System
 
 ### Phase 4: Mo'sh
 - [ ] Working Directory

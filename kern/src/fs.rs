@@ -3,7 +3,6 @@ pub mod sd;
 use alloc::rc::Rc;
 use core::fmt::{self, Debug};
 use shim::io;
-use shim::ioerr;
 use shim::path::Path;
 
 pub use fat32::traits;
@@ -45,7 +44,7 @@ impl FileSystem {
     ///
     /// The file system must be initialized by calling `initialize()` before the
     /// first memory allocation. Failure to do will result in panics.
-    pub const fn uninitialized() -> Self {
+    pub const fn uninitialized() -> Self {	
         FileSystem(Mutex::new(None))
     }
 
@@ -57,7 +56,9 @@ impl FileSystem {
     ///
     /// Panics if the underlying disk or file sytem failed to initialize.
     pub unsafe fn initialize(&self) {
-        unimplemented!("FileSystem::initialize()")
+	let sd_device = Sd::new().expect("SD card controller failed");
+	let vfat = VFat::<PiVFatHandle>::from(sd_device).expect("failed to initialize VFAT from SD card controller");
+	*self.0.lock() = Some(vfat);
     }
 }
 
@@ -85,26 +86,6 @@ impl fat32::traits::FileSystem for &FileSystem {
     ///
     /// All other error values are implementation defined.
     fn open<P: AsRef<Path>>(self, path: P) -> io::Result<Self::Entry> {
-	unimplemented!()
-    }
-
-    /// Opens the file at `path`. `path` must be absolute.
-    ///
-    /// # Errors
-    ///
-    /// In addition to the error conditions for `open()`, this method returns an
-    /// error kind of `Other` if the entry at `path` is not a regular file.
-    fn open_file<P: AsRef<Path>>(self, path: P) -> io::Result<Self::File> {
-	unimplemented!()
-    }
-
-    /// Opens the directory at `path`. `path` must be absolute.
-    ///
-    /// # Errors
-    ///
-    /// In addition to the error conditions for `open()`, this method returns an
-    /// error kind of `Other` if the entry at `path` is not a directory.
-    fn open_dir<P: AsRef<Path>>(self, path: P) -> io::Result<Self::Dir> {
-	unimplemented!()
+	self.0.lock().as_ref().unwrap().open(path)
     }
 }

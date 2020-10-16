@@ -1,6 +1,5 @@
 use core::time::Duration;
 use shim::io;
-use shim::ioerr;
 use pi::timer::spin_sleep;
 
 use fat32::traits::BlockDevice;
@@ -32,6 +31,7 @@ extern "C" {
 
 // FIXME: Define a `#[no_mangle]` `wait_micros` function for use by `libsd`.
 // The `wait_micros` C signature is: `void wait_micros(unsigned int);`
+#[no_mangle]
 fn wait_micros(us: u32) {
     let wait_time = Duration::from_micros(us as u64);
     spin_sleep(wait_time);
@@ -82,7 +82,7 @@ impl BlockDevice for Sd {
 	    return Err(io::Error::new(io::ErrorKind::InvalidInput, "buffer too small to read sector"));
 	}
 
-	if (n > 0x7FFFFFFF) {
+	if n > 0x7FFFFFFF {
 	    return Err(io::Error::new(io::ErrorKind::InvalidInput, "out of range sector requested for read"));
 	}
 

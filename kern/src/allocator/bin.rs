@@ -1,13 +1,10 @@
 use core::alloc::Layout;
-use core::fmt;
 use core::ptr;
 use core::cmp::max;
 
 use crate::allocator::linked_list::LinkedList;
 use crate::allocator::util::*;
 use crate::allocator::LocalAlloc;
-
-use crate::console::kprintln;
 
 const ALLOC_BOUND: usize = 64 - 3;
 const MIN_BIN_SIZE: usize = 8;
@@ -54,7 +51,6 @@ fn bump(current: usize, end: usize, size: usize, align: usize) -> Option<usize> 
 ///   
 
 pub struct Allocator {
-    // FIXME: Add the necessary fields.
     current: usize,
     end: usize,
     bins: [LinkedList; ALLOC_BOUND],
@@ -201,12 +197,8 @@ impl LocalAlloc for Allocator {
     /// Parameters not meeting these conditions may result in undefined
     /// behavior.
     unsafe fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
-
 	let size = max(layout.size(), layout.align());
 	let bin_index = get_bin(size);
-	
-        unsafe {
-            self.bins[bin_index].push(ptr as *mut usize);
-        }
+        self.bins[bin_index].push(ptr as *mut usize);
     }
 }
