@@ -33,7 +33,7 @@ extern "C" {
 // FIXME: Define a `#[no_mangle]` `wait_micros` function for use by `libsd`.
 // The `wait_micros` C signature is: `void wait_micros(unsigned int);`
 fn wait_micros(us: u32) {
-    let wait_time = Duration::from_micros(us);
+    let wait_time = Duration::from_micros(us as u64);
     spin_sleep(wait_time);
 }
 
@@ -48,13 +48,17 @@ impl Sd {
     /// with atomic memory access, but we can't use it yet since we haven't
     /// written the memory management unit (MMU).
     pub unsafe fn new() -> Result<Sd, io::Error> {
-	let sd_handle: Sd = Sd{};
-	match sd_init() {
-	    0 => Ok(sd_handle),
-	    -1 => Err(io::Error::new(io::ErrorKind::TimedOut, "SD card controller timed out")),
-	    -2 => Err(io::Error::new(io::ErrorKind::Other, "communication failed with SD card controller")),
-	    _ => Err(io::Error::new(io::ErrorKind::Other, "an undefined error occured")),
+	let result = sd_init();
+	if result == 0 {
+	    return Ok(Sd{});
 	}
+	if result == -1 {
+	    return Err(io::Error::new(io::ErrorKind::TimedOut, "SD card controller timed out")); 
+	}
+	if result == -2 {
+	    return Err(io::Error::new(io::ErrorKind::Other, "communication failed with SD card controller"));
+	}
+	Err(io::Error::new(io::ErrorKind::Other, "an undefined error occured"))
     }
 }
 
@@ -76,18 +80,22 @@ impl BlockDevice for Sd {
 	    return Err(io::Error::new(io::ErrorKind::InvalidInput, "buffer too small to read sector"));
 	}
 
-	if (n > (i32::MAX as u64)) {
+	if (n > 0x7FFFFFFF) {
 	    return Err(io::Error::new(io::ErrorKind::InvalidInput, "out of range sector requested for read"));
 	}
 
-	let bytes_read = sd_readsector(n as i32, &mut buf);
+	let bytes_read = unsafe{
+	    sd_readsector(n as i32, buf.as_mut_ptr())
+	};
 
 	if bytes_read == 0 {
 	    // error occurred
-	    match sd_err {
-		-1 => Err(io::Error::new(io::ErrorKind::TimedOut, "SD card controller timed out")),
-		-2 => Err(io::Error::new(io::ErrorKind::Other, "communication failed with SD card controller")),
-		_ => Err(io::Error::new(io::ErrorKind::Other, "an undefined error occured")),
+	    unsafe {
+		match sd_err {
+		    -1 => {return Err(io::Error::new(io::ErrorKind::TimedOut, "SD card controller timed out"));},
+		    -2 => {return Err(io::Error::new(io::ErrorKind::Other, "communication failed with SD card controller"));},
+		    _ => {return Err(io::Error::new(io::ErrorKind::Other, "an undefined error occured"));},
+		};
 	    }
 	}
 
@@ -97,7 +105,7 @@ impl BlockDevice for Sd {
 	}
 
 	// successfull read
-	Ok(bytes_read);
+	Ok(bytes_read as usize)
     }
 
     fn write_sector(&mut self, _n: u64, _buf: &[u8]) -> io::Result<usize> {

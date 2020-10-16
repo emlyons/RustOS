@@ -62,4 +62,49 @@ impl FileSystem {
 }
 
 // FIXME: Implement `fat32::traits::FileSystem` for `&FileSystem`
-impl fat32::traits::FileSystem for &FileSystem {}
+impl fat32::traits::FileSystem for &FileSystem {
+    /// The type of files in this file system.
+    type File = File<PiVFatHandle>;
+
+    /// The type of directories in this file system.
+    type Dir = Dir<PiVFatHandle>;
+
+    /// The type of directory entries in this file system.
+    type Entry = Entry<PiVFatHandle>;
+
+    /// Opens the entry at `path`. `path` must be absolute.
+    ///
+    /// # Errors
+    ///
+    /// If `path` is not absolute, an error kind of `InvalidInput` is returned.
+    ///
+    /// If any component but the last in `path` does not refer to an existing
+    /// directory, an error kind of `InvalidInput` is returned.
+    ///
+    /// If there is no entry at `path`, an error kind of `NotFound` is returned.
+    ///
+    /// All other error values are implementation defined.
+    fn open<P: AsRef<Path>>(self, path: P) -> io::Result<Self::Entry> {
+	unimplemented!()
+    }
+
+    /// Opens the file at `path`. `path` must be absolute.
+    ///
+    /// # Errors
+    ///
+    /// In addition to the error conditions for `open()`, this method returns an
+    /// error kind of `Other` if the entry at `path` is not a regular file.
+    fn open_file<P: AsRef<Path>>(self, path: P) -> io::Result<Self::File> {
+	unimplemented!()
+    }
+
+    /// Opens the directory at `path`. `path` must be absolute.
+    ///
+    /// # Errors
+    ///
+    /// In addition to the error conditions for `open()`, this method returns an
+    /// error kind of `Other` if the entry at `path` is not a directory.
+    fn open_dir<P: AsRef<Path>>(self, path: P) -> io::Result<Self::Dir> {
+	unimplemented!()
+    }
+}

@@ -226,7 +226,12 @@ impl <HANDLE: VFatHandle> DirIterator<HANDLE> {
 	    // go to next entry
 	    self.entry_offset += 1;
 	}
-	self.parse_reg(vec_name.join(""))
+	let mut name = String::new();
+	for n in vec_name {
+	    name.push_str(&n);
+	}
+	
+	self.parse_reg(name)
     }
 
     /// Parses a regular directory entry and returns the associated type (File or Directory)
