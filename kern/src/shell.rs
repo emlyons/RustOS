@@ -1,4 +1,4 @@
-use shim::path::{Path, PathBuf};
+use shim::path::{Path, PathBuf, Component};
 
 use stack_vec::StackVec;
 
@@ -26,6 +26,55 @@ const BELL: u8 = 7;
 enum Error {
     Empty,
     TooManyArgs,
+}
+
+/// shell session state
+struct Shell {
+    pwd: PathBuf,
+}
+
+impl Shell {
+    fn new() -> Self {
+	let mut dir = PathBuf::from(r"/");
+	Shell{pwd: dir}
+    }
+
+    fn change_pwd(&mut self, path: &str) -> bool {
+	let curr_pwd = self.pwd.clone();
+	let p = Path::new(path);
+	
+	for entry in p.components() {
+	    match entry {
+		Component::CurDir => continue,
+		Component::ParentDir => {self.pop();},
+		Component::RootDir => {self.root();},
+		Component::Normal(name) => {
+		    self.pwd.push(name);
+		    if FILESYSTEM.open(self.pwd.as_path()).is_err() {
+			self.pwd = curr_pwd.clone();
+			return false;
+		    }
+		},
+		_ => unreachable!(),
+	    };
+	}
+	true
+    }
+
+    fn pop(&mut self) {
+	if self.pwd.pop() == false {
+	    self.root();
+	}
+    }
+
+    fn root(&mut self) {
+	while self.pwd.pop() {};
+	self.pwd.push("/");
+    } 
+    
+    fn new_line(&self) {
+	kprint!("\n({}) > ", self.pwd.as_path().display());
+    }
 }
 
 /// A structure representing a single shell command.
@@ -59,94 +108,96 @@ impl<'a> Command<'a> {
 	assert!(!self.args.is_empty());
 	self.args[0]
     }
+}
 
-    /// fullfills command request if present/valid in Command struct
-    fn execute(&self) {
-	match self.path() {
-	    "echo" => self.echo(),
-	    "panic" => self.panic(),
-	    "binled" => self.binary_led(),
-	    _ => {
-		kprintln!("");
-		kprint!("unknown command");
-	    },
-	}
+/// fullfills command request if present/valid in Command struct
+fn execute(cmd: &Command, shell: &mut Shell) {
+    match cmd.path() {
+	"echo" => echo(cmd),
+	"panic" => panic(),
+	"binled" => binary_led(cmd),
+	"cd" => change_directory(cmd, shell),
+	"ls" => list_directory(shell),
+	"pwd" => print_directory(shell),
+	"cat" => concatenate_file(cmd, shell),
+	_ => {
+	    kprint!("\nunknown command");
+	},
     }
+}
 
-    fn echo (&self) {
-	assert_eq!(self.args[0], "echo");
+fn echo (cmd: &Command) {
+    assert_eq!(cmd.args[0], "echo");
+    if (cmd.args.len() > 1) {
 	kprintln!("");
-	self.args.as_slice().iter().skip(1).for_each(|arg| kprint!("{}", arg));
+	cmd.args.as_slice().iter().skip(1).for_each(|arg| kprint!("{} ", arg));
     }
+}
 
-    fn binary_led(&self) {
-	assert_eq!(self.args[0], "binled");
-
+fn binary_led(cmd: &Command) {
+    assert_eq!(cmd.args[0], "binled");
+    if (cmd.args.len() == 2) {
 	// parse number from string, if unsuccessful turn off leds
 	let mut val: u8 = 0;
-	let arg = self.args[1].parse::<u8>();
+	let arg = cmd.args[1].parse::<u8>();
 	if arg.is_ok() {
 	    val = arg.unwrap();
 	}
-
+	
 	let mut _gpio = [gpio::Gpio::new(5).into_output(),
-		     gpio::Gpio::new(6).into_output(),
-		     gpio::Gpio::new(13).into_output(),
-		     gpio::Gpio::new(16).into_output(),
-		     gpio::Gpio::new(19).into_output(),
-		     gpio::Gpio::new(26).into_output()];
-
+			 gpio::Gpio::new(6).into_output(),
+			 gpio::Gpio::new(13).into_output(),
+			 gpio::Gpio::new(16).into_output(),
+			 gpio::Gpio::new(19).into_output(),
+			 gpio::Gpio::new(26).into_output()];
+	
 	_gpio.iter_mut().enumerate().for_each(|(i, pin)| {
 	    if (val & (0b1 << i)) == (0b1 << i) {
 		pin.set()
 	    } else {
 		pin.clear()}
-	})	    
+	})
     }
-
-    // TODO: THIS IS FOR DEBUGGING AND SHOULD NOT REMAIN
-    fn panic(&self) {
-	unreachable!();
-    }
-
 }
 
+fn change_directory(cmd: &Command, shell: &mut Shell) {
+    assert_eq!(cmd.args[0], "cd");
+    if (cmd.args.len() == 2) {
+	if !shell.change_pwd(&cmd.args[1]) {
+	    kprint!("\n{}: {}: No such file or directory", cmd.args[0], cmd.args[1]);
+	}
+    }
+}
 
-/*
+fn list_directory(shell: &mut Shell) {
+    kprint!("\nTODO: list directory");
+}
 
-    [] implement the echo built-in: echo $a $b $c should print $a $b $c
+fn print_directory(shell: &mut Shell) {
+    kprint!("\n{}", shell.pwd.as_path().display());
+}
 
-    [X] accept both \r and \n as “enter”, marking the end of a line
+fn concatenate_file(cmd: &Command, shell: &mut Shell) {
+    assert_eq!(cmd.args[0], "cat");
+    if (cmd.args.len() == 2) {
+	kprint!("\nTODO: concatenate file: {}{}", shell.pwd.as_path().display(), cmd.args[1]);
+    }
+}
 
-    [X] accept both backspace and delete (ASCII 8 and 127) to erase a single character
-
-    [X] ring the bell (ASCII 7) if an unrecognized non-visible character is sent to it
-
-    [X] print unknown command: $command for an unknown command $command
-
-    [X] disallow backspacing through the prefix
-
-    [X] disallow typing more characters than allowed
-
-    [X] accept commands at most 512 bytes in length
-
-    [X] accept at most 64 arguments per command
-
-    [X] start a new line, without error, with the prefix if the user enters an empty command
-
-    [X] print error: too many arguments if the user passes in too many arguments
-
- */
-
+// TODO: THIS IS FOR DEBUGGING AND SHOULD NOT REMAIN
+fn panic() {
+    unreachable!();
+}
 
 /// Starts a shell using `prefix` as the prefix for each line. This function
 /// never returns.
 pub fn shell(prefix: &str) -> ! {
 
+    let mut session = Shell::new();
     let mut buff_backing = [0u8; 512];
     let mut buf = StackVec::new(&mut buff_backing);
 
-    kprint!("{}", prefix);
+    session.new_line();
     
     loop {
 	// print out prefix
@@ -161,11 +212,10 @@ pub fn shell(prefix: &str) -> ! {
 		
 		match command {
 		    Ok(cmd) => {
-			cmd.execute();
+			execute(&cmd, &mut session);
 		    },
 		    Err(Error::TooManyArgs) => {
-			kprintln!("");
-			kprint!("too many arguments, max 64", );
+			kprint!("\ntoo many arguments, max 64", );
 		    },
 		    Err(Error::Empty) => {
 			// do nothing
@@ -174,8 +224,7 @@ pub fn shell(prefix: &str) -> ! {
 		
 		// -> path and args -> execute
 		buf = StackVec::new(&mut buff_backing);
-		kprintln!("");
-		kprint!("{}", prefix);
+		session.new_line();
 	    },
 
 	    byte if (byte == BACKSPACE || byte == DELETE) => {
