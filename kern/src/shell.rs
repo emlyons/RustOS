@@ -1,17 +1,18 @@
 use shim::path::{Path, PathBuf, Component};
 
 use stack_vec::StackVec;
+use alloc::vec::Vec;
 
 use pi::atags::Atags;
 
 use fat32::traits::FileSystem;
-use fat32::traits::{Dir, Entry};
+use fat32::traits::{Dir, File, Entry};
 
 use crate::console::{kprint, kprintln, CONSOLE};
 use crate::ALLOCATOR;
 use crate::FILESYSTEM;
 
-use shim::io::Write;
+use shim::io::{Read, Write};
 use core::str;
 use pi::gpio;
 
@@ -35,7 +36,7 @@ struct Shell {
 
 impl Shell {
     fn new() -> Self {
-	let mut dir = PathBuf::from(r"/");
+	let dir = PathBuf::from(r"/");
 	Shell{pwd: dir}
     }
 
@@ -50,7 +51,7 @@ impl Shell {
 		Component::RootDir => {self.root();},
 		Component::Normal(name) => {
 		    self.pwd.push(name);
-		    if FILESYSTEM.open(self.pwd.as_path()).is_err() {
+		    if FILESYSTEM.open(self.pwd.as_path()).is_err() { // or is file
 			self.pwd = curr_pwd.clone();
 			return false;
 		    }
@@ -59,6 +60,40 @@ impl Shell {
 	    };
 	}
 	true
+    }
+
+    fn list_pwd(&mut self) {
+	if let Ok(entry) = FILESYSTEM.open(self.pwd.as_path()) {
+	    if let Some(dir) = entry.as_dir() {
+		kprintln!("");
+		for entry in dir.entries().unwrap() {
+		    // attr?, date, 
+		    kprintln!("{:?} {}", entry.metadata(), entry.name());
+		}
+	    }
+	}
+    }
+
+    fn concatenate_file(&mut self, name: &str) {
+	let mut file_path = self.pwd.clone();
+	file_path.push(Path::new(name));
+	
+	if let Ok(entry) = FILESYSTEM.open(file_path.as_path()) {
+	    if let Some(mut file) = entry.into_file() {
+		
+		let mut read_bytes = 0;
+		let mut data = [0u8; 512];
+		while read_bytes < file.size() {
+		    if let Ok(bytes_returned) = file.read(&mut data) {
+			kprintln!("{:?}", &data[0..bytes_returned]);
+			read_bytes += bytes_returned as u64;
+		    }
+		    else {
+			return;
+		    }
+		}
+	    }
+	}
     }
 
     fn pop(&mut self) {
