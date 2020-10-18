@@ -62,40 +62,6 @@ impl Shell {
 	true
     }
 
-    fn list_pwd(&mut self) {
-	if let Ok(entry) = FILESYSTEM.open(self.pwd.as_path()) {
-	    if let Some(dir) = entry.as_dir() {
-		kprintln!("");
-		for entry in dir.entries().unwrap() {
-		    // attr?, date, 
-		    kprintln!("{:?} {}", entry.metadata(), entry.name());
-		}
-	    }
-	}
-    }
-
-    fn concatenate_file(&mut self, name: &str) {
-	let mut file_path = self.pwd.clone();
-	file_path.push(Path::new(name));
-	
-	if let Ok(entry) = FILESYSTEM.open(file_path.as_path()) {
-	    if let Some(mut file) = entry.into_file() {
-		
-		let mut read_bytes = 0;
-		let mut data = [0u8; 512];
-		while read_bytes < file.size() {
-		    if let Ok(bytes_returned) = file.read(&mut data) {
-			kprintln!("{:?}", &data[0..bytes_returned]);
-			read_bytes += bytes_returned as u64;
-		    }
-		    else {
-			return;
-		    }
-		}
-	    }
-	}
-    }
-
     fn pop(&mut self) {
 	if self.pwd.pop() == false {
 	    self.root();
@@ -152,7 +118,7 @@ fn execute(cmd: &Command, shell: &mut Shell) {
 	"panic" => panic(),
 	"binled" => binary_led(cmd),
 	"cd" => change_directory(cmd, shell),
-	"ls" => list_directory(shell),
+	"ls" => list_directory(cmd, shell),
 	"pwd" => print_directory(shell),
 	"cat" => concatenate_file(cmd, shell),
 	_ => {
@@ -204,8 +170,76 @@ fn change_directory(cmd: &Command, shell: &mut Shell) {
     }
 }
 
-fn list_directory(shell: &mut Shell) {
-    kprint!("\nTODO: list directory");
+fn list_directory(cmd: &Command, shell: &mut Shell) {
+    use fat32::traits::{Metadata, Timestamp};
+    let mut hidden = false;
+    let mut path = shell.pwd.clone();
+    
+    if cmd.args.len() == 3 && cmd.args[1] == "-a" {
+	hidden = true;
+	path.push(cmd.args[2]);
+    }
+    else if cmd.args.len() == 2 && cmd.args[1] == "-a"{
+	hidden = true;
+    }
+    else if cmd.args.len() == 2 {
+	path.push(cmd.args[1]);
+    }
+
+    if let Ok(entry) = FILESYSTEM.open(path.as_path()) {
+	if let Some(dir) = entry.as_dir() {
+	    for entry in dir.entries().unwrap() {
+		if !entry.metadata().hidden() || hidden {
+		    kprintln!("");
+		    
+		    match entry.metadata().read_only() {
+			true => {kprint!("r");},
+			false => {kprint!("w");},
+		    }
+		    
+		    match entry.metadata().hidden() {
+			true => {kprint!("h");},
+			false => {kprint!("-");},
+		    }
+		    
+		    match entry.metadata().system() {
+			true => {kprint!("s");},
+			false => {kprint!("-");},
+		    }
+		    
+		    match entry.metadata().directory() {
+			true => {kprint!("d");},
+			false => {kprint!("f");},
+		    }
+		    
+		    match entry.metadata().archive() {
+			true => {kprint!("a");},
+			false => {kprint!("-");},
+		    }
+		    
+		    kprint!(" {:02}/", entry.metadata().created().day());
+		    kprint!("{:02}/", entry.metadata().created().month());
+		    kprint!("{:04} ", entry.metadata().created().year());
+		    kprint!("{:02}:", entry.metadata().created().hour());
+		    kprint!("{:02}:", entry.metadata().created().minute());
+		    kprint!("{:02} ", entry.metadata().created().second());
+		
+		    kprint!("{:02}/", entry.metadata().modified().day());
+		    kprint!("{:02}/", entry.metadata().modified().month());
+		    kprint!("{:04} ", entry.metadata().modified().year());
+		    kprint!("{:02}:", entry.metadata().modified().hour());
+		    kprint!("{:02}:", entry.metadata().modified().minute());
+		    kprint!("{:02} ", entry.metadata().modified().second());
+		
+		    kprint!(" {:10} ", entry.metadata().file_size());
+		    kprint!(" {}", entry.name());
+		}
+	    }
+	}
+    }
+    else {
+	kprint!("\n{}: No such directory", cmd.args[0]);
+    }
 }
 
 fn print_directory(shell: &mut Shell) {
@@ -215,7 +249,29 @@ fn print_directory(shell: &mut Shell) {
 fn concatenate_file(cmd: &Command, shell: &mut Shell) {
     assert_eq!(cmd.args[0], "cat");
     if (cmd.args.len() == 2) {
-	kprint!("\nTODO: concatenate file: {}{}", shell.pwd.as_path().display(), cmd.args[1]);
+	let mut file_path = shell.pwd.clone();
+	file_path.push(Path::new(cmd.args[1]));
+	
+	if let Ok(entry) = FILESYSTEM.open(file_path.as_path()) {
+	    if let Some(mut file) = entry.into_file() {
+		kprintln!("");
+		let mut read_bytes = 0;
+		let mut data = [0u8; 1024];
+		while read_bytes < file.size() {
+		    if let Ok(bytes_returned) = file.read(&mut data) {
+			if let Ok(text) = str::from_utf8(&data[0..bytes_returned]) {
+			    kprint!("{:?}", text);
+			}
+			read_bytes += bytes_returned as u64;
+		    }
+		    else {
+			return;
+		    }
+		}
+		return;
+	    }
+	}
+	kprint!("\n{}: {}: No such file", cmd.args[0], cmd.args[1]);
     }
 }
 
@@ -235,16 +291,15 @@ pub fn shell(prefix: &str) -> ! {
     session.new_line();
     
     loop {
-	// print out prefix
 	let mut console = CONSOLE.lock();
 	let new_byte = console.read_byte();
 
 	match new_byte {
-	    
+
+	    // current command line entered as command
 	    byte if (byte == NEWLINE || byte == RETURN) => {
 		let mut cmd_backing: [&str; 64] = [""; 64];
-		let command = Command::parse(str::from_utf8(buf.as_slice()).unwrap(),&mut cmd_backing);
-		
+		let command = Command::parse(str::from_utf8(buf.as_slice()).unwrap(),&mut cmd_backing);		
 		match command {
 		    Ok(cmd) => {
 			execute(&cmd, &mut session);
@@ -256,31 +311,30 @@ pub fn shell(prefix: &str) -> ! {
 			// do nothing
 		    },
 		}
-		
-		// -> path and args -> execute
 		buf = StackVec::new(&mut buff_backing);
 		session.new_line();
 	    },
 
+	    // remove chars from command line
 	    byte if (byte == BACKSPACE || byte == DELETE) => {
 		match buf.pop() {
 		    Some(_some) => {console.write(&[BACKSPACE, b' ', BACKSPACE]).expect("backspace/del shell character");},
 		    None => {console.write_byte(BELL);},
 		}
 	    },
-	    
-	    byte if (byte < 32) => { // non-printable chars
+
+	    // non printable char enteered to command line
+	    byte if (byte < 32) => {
 		console.write_byte(BELL);
 	    },
-		
+
+	    // valid char input
 	    _ => {
 		match buf.push(new_byte) {
 		    Ok(_ok) => {kprint!("{}", new_byte as char);},
 		    Err(_err) => {console.write_byte(BELL);},
 		}
 	    }
-	    
-
 	}	
     }
 }
