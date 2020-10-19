@@ -99,9 +99,9 @@ Write `stack-vec`, `volatile`, `ttywrite`, and `xmodem` libraries.
 - [x] Making Space
 - [x] Implementing the Bootloader
 
+
 ## FAT32 Filesystem
 Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignments/2-fs/).
-
 
 ### Phase 0: Getting Started
 - [x] Getting the Skeleton Code
@@ -121,9 +121,39 @@ Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignment
 - [x] Subphase B: File System
 
 ### Phase 4: Mo'sh
-- [ ] Working Directory
-- [ ] Commands
-- [ ] Implementation
+- [x] Working Directory
+- [x] Commands
+- [x] Implementation
+
+
+## FAT32 Filesystem
+Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignments/2-fs/).
+
+### Phase 0: Getting Started
+- [x] Getting the Skeleton Code
+
+### Phase 1: ARM and a Leg
+- [ ] Subphase A: ARMv8 Overview
+- [ ] Subphase B: Instructions
+- [ ] Subphase C: Switching to EL1
+- [ ] Subphase D: Exception Vectors
+- [ ] Subphase E: Exception Return
+
+### Phase 2: It's a Process
+- [ ] Subphase A: Processes
+- [ ] Subphase B: The First Process
+- [ ] Subphase C: Timer Interrupts
+- [ ] Subphase D: Scheduler
+- [ ] Subphase E: Sleep
+
+### Phase 3: Memory Management Unit
+- [ ] Subphase A: Virtual Memory
+- [ ] Subphase B: Page Table
+
+### Phase 4: Programs In The Disk
+- [ ] Subphase A: Load A Program
+- [ ] Subphase B: User Processes
+
 =======
 # CS3210 Lab assignments
 
