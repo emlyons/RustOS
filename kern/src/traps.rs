@@ -39,26 +39,32 @@ pub struct Info {
     kind: Kind,
 }
 
+fn handle_synchronous(info: Info, esr: u32, tf: &mut TrapFrame) {    
+    match Syndrome::from(esr) {
+	Syndrome::Brk(comment) => {
+	    shell::shell("$ ");
+	},
+	_ => {},
+    };
+}
+
 /// This function is called when an exception occurs. The `info` parameter
 /// specifies the source and kind of exception that has occurred. The `esr` is
 /// the value of the exception syndrome register. Finally, `tf` is a pointer to
 /// the trap frame for the exception.
 #[no_mangle]
 pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
-    if info.kind == Kind::Synchronous {
-	
-	match Syndrome::from(esr) {
-	    Syndrome::Brk(comment) => {
-		shell::shell("$ ");
-	    },
-	    _ => {},
-	};
- 
-    }
 
-    // TODO: return
-
-    loop {
-	aarch64::nop();
-    }
+    let elr = unsafe {aarch64::ELR_EL1.get() as u64};
+    assert_eq!(tf.elr, elr);
+    
+    match info.kind {
+	Kind::Synchronous => {
+	    tf.elr += 4;
+	    handle_synchronous(info, esr, tf);
+	},
+	Kind::Irq => {},
+	Kind::Fiq => {},
+	Kind::SError => {}, 
+    };
 }

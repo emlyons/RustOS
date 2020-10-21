@@ -296,7 +296,7 @@ pub fn shell(prefix: &str) {
 
     session.new_line(prefix);
     
-    while session.active {
+    loop {
 	let mut console = CONSOLE.lock();
 	let new_byte = console.read_byte();
 
@@ -309,6 +309,9 @@ pub fn shell(prefix: &str) {
 		match command {
 		    Ok(cmd) => {
 			execute(&cmd, &mut session);
+			if !session.active {
+			    break;
+			}
 		    },
 		    Err(Error::TooManyArgs) => {
 			kprint!("\ntoo many arguments, max 64", );

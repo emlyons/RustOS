@@ -133,11 +133,11 @@ Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignment
 - [x] Getting the Skeleton Code
 
 ### Phase 1: ARM and a Leg
-- [ ] Subphase A: ARMv8 Overview
-- [ ] Subphase B: Instructions
-- [ ] Subphase C: Switching to EL1
-- [ ] Subphase D: Exception Vectors
-- [ ] Subphase E: Exception Return
+- [x] Subphase A: ARMv8 Overview
+- [x] Subphase B: Instructions
+- [x] Subphase C: Switching to EL1
+- [x] Subphase D: Exception Vectors
+- [x] Subphase E: Exception Return
 
 ### Phase 2: It's a Process
 - [ ] Subphase A: Processes
