@@ -1,0 +1,18 @@
+mrs x0, CurrentEL
+
+mov x1, #3
+cmp x0, #0b11
+beq EL_FOUND
+
+mov x1, #2
+cmp x0, #0b10
+beq EL_FOUND
+
+mov x1, #1
+cmp x0, #0b01
+beq EL_FOUND
+
+mov x1, #0
+
+EL_FOUND:
+mov x0, x1

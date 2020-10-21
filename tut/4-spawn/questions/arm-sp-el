@@ -1,0 +1,15 @@
+mov x0, B
+mrs x1, SPSR_EL[0]
+
+cmp x1, #1
+beq EL_s
+b EL_zero
+
+EL_s:
+msr SP_ELs, x0
+b done
+
+EL_zero:
+msr SP_EL0, x0
+
+done:

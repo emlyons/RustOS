@@ -2,10 +2,9 @@ ROOT := $(shell git rev-parse --show-toplevel)
 
 KERN := kernel
 TARGET := target/aarch64-unknown-none/release/${KERN}
-TARGET_DEBUG := target/aarch64-unknown-none/debug/${KERN}
+TARGET_DEBUG := target/aarch64-unknown-none/release/${KERN}
 SDCARD ?= $(ROOT)/ext/fat32-imgs/mock1.fat32.img
 # SDCARD ?= $(ROOT)/user/fs.img
-
 OBJCPY := cargo objcopy -- --strip-all -O binary
 TTY_PATH := /dev/ttyUSB0
 QEMU_ARGS ?=
@@ -38,13 +37,11 @@ check:
 qemu: build
 	./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd $(QEMU_ARGS)
 
-qemu-gdb: debug
-	./qemu.sh build/$(KERN).bin
-	#./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd -s -S
+qemu-gdb: build
+	./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd -s
 
-qemu-asm: debug
+qemu-asm: build
 	./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd -d in_asm
-
 
 transmit: build
 	@echo "+ Transmitting build/$(KERN).bin to $(TTY_PATH)"

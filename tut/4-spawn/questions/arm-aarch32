@@ -1,0 +1,3 @@
+mrs x0, SPSR_ELx
+orr x0, x0, #(1 << 4)
+msr SPSR_ELx, x0

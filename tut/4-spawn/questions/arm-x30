@@ -1,0 +1,2 @@
+lr (link register) alias of x30
+w30 (lower 32 bits of x30 as this is a 32-bit value)
