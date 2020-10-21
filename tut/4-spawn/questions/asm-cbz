@@ -1,0 +1,6 @@
+Compare and Branch if zero
+
+CBZ <rn> <label>
+
+if rn == 0
+ branches to label

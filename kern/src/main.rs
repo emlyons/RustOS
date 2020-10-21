@@ -8,7 +8,6 @@
 #![feature(raw_vec_internals)]
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
-
 #[cfg(not(test))]
 mod init;
 
@@ -34,6 +33,7 @@ use fs::FileSystem;
 use process::GlobalScheduler;
 use traps::irq::Irq;
 use vm::VMManager;
+use aarch64::*;
 
 #[cfg_attr(not(test), global_allocator)]
 pub static ALLOCATOR: Allocator = Allocator::uninitialized();
@@ -45,11 +45,11 @@ pub static IRQ: Irq = Irq::uninitialized();
 fn kmain() -> ! {
 
     spin_sleep(Duration::from_secs(1));
-    
+    /*
     // ATAG report
     let atag = atags::Atags::get();
     atag.for_each(|x| kprintln!("{:#?}\n\n", x));
-
+     */
     
     unsafe {
         ALLOCATOR.initialize();
@@ -70,6 +70,9 @@ fn kmain() -> ! {
 Welcome to rustOS on Raspberry Pi!
 ");
 
-    
-    shell::shell("> ");
+    brk!(2);
+
+    loop {
+	shell::shell("> ");
+    }
 }

@@ -1,0 +1,10 @@
+source addr = x0
+dest addr = x1
+num_bytes = x2
+
+MEMCPY:
+	ldr x3, [x0], #1
+	str x3, [x1], #1
+	sub x2, x2, #1
+	cbz x2 MEMCPY
+	ret

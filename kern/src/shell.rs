@@ -32,12 +32,13 @@ enum Error {
 /// shell session state
 struct Shell {
     pwd: PathBuf,
+    active: bool,
 }
 
 impl Shell {
     fn new() -> Self {
 	let dir = PathBuf::from(r"/");
-	Shell{pwd: dir}
+	Shell{pwd: dir, active: true}
     }
 
     fn change_pwd(&mut self, path: &str) -> bool {
@@ -73,8 +74,8 @@ impl Shell {
 	self.pwd.push("/");
     } 
     
-    fn new_line(&self) {
-	kprint!("\n({}) > ", self.pwd.as_path().display());
+    fn new_line(&self, prefix: &str) {
+	kprint!("\n({}) {} ", self.pwd.as_path().display(), prefix);
     }
 }
 
@@ -121,6 +122,7 @@ fn execute(cmd: &Command, shell: &mut Shell) {
 	"ls" => list_directory(cmd, shell),
 	"pwd" => print_directory(shell),
 	"cat" => concatenate_file(cmd, shell),
+	"exit" => exit(shell),
 	_ => {
 	    kprint!("\nunknown command");
 	},
@@ -275,6 +277,10 @@ fn concatenate_file(cmd: &Command, shell: &mut Shell) {
     }
 }
 
+fn exit(shell: &mut Shell) {
+    shell.active = false;
+}
+
 // TODO: THIS IS FOR DEBUGGING AND SHOULD NOT REMAIN
 fn panic() {
     unreachable!();
@@ -282,15 +288,15 @@ fn panic() {
 
 /// Starts a shell using `prefix` as the prefix for each line. This function
 /// never returns.
-pub fn shell(prefix: &str) -> ! {
+pub fn shell(prefix: &str) {
 
     let mut session = Shell::new();
     let mut buff_backing = [0u8; 512];
     let mut buf = StackVec::new(&mut buff_backing);
 
-    session.new_line();
+    session.new_line(prefix);
     
-    loop {
+    while session.active {
 	let mut console = CONSOLE.lock();
 	let new_byte = console.read_byte();
 
@@ -312,7 +318,7 @@ pub fn shell(prefix: &str) -> ! {
 		    },
 		}
 		buf = StackVec::new(&mut buff_backing);
-		session.new_line();
+		session.new_line(prefix);
 	    },
 
 	    // remove chars from command line

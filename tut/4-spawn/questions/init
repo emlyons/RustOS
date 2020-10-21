@@ -1,0 +1,39 @@
+_start() bits [7:0] from MPDIR_EL1 to confirm core 0 is executing.
+If those bits are set to zero the Stack Pointer is set to KERN_STACK_BASE (0x80_000)
+Then kinit() is called
+
+
+zero_bss()
+Adds two static values to BSS
+iterates through addresses and sets memory region to ZERO.
+
+
+switch_to_el2()
+If the current exception level is 3,
+Disable calls to secure monitor (EL3)
+Enable calls to Hypervisor (EL2)
+Sets next lower level to AArch64
+
+Sets exception state for return to EL2
+Taken from AArch64
+Set Mode exception was taken from to 'EL2 and use EL SP'
+Interrupts are masked
+Exception return is called to return to EL2
+
+
+
+switch_to_el1()
+Sets the SP_EL1 stack pointer to current SP location
+Enable trapping peripheral timer/counter access to EL2 from EL1/EL0
+Sets the offset of the virtual to physical counter to 0
+Set lower exception level EL0 to AArch64
+enable floating point and SIMD instruction
+Set exception taken from AArch64
+Set Mode exception was taken from to 'EL1 ans use EL SP'
+Mask all interrupts (ARM convention)
+
+
+kinit()
+calls the previouse functions to clear BSS and go from EL3 to EL1
+and then calls the OS main function.
+

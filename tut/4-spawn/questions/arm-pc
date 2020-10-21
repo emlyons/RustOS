@@ -1,0 +1,10 @@
+FOR RET:
+
+ldr lr, A
+ret
+
+
+FOR ERET:
+
+ldr x0, A
+mrs ELR_ELx, x0
