@@ -83,7 +83,6 @@ impl From<u32> for Syndrome {
 	    0b110101 => Syndrome::Watchpoint,
 	    0b111100 => Syndrome::Brk(ESR_EL1::get_value(esr as u64, ESR_EL1::ISS_BRK_CMMT) as u16),
 	    error => Other(error as u32),
-
 	}
     }
 }

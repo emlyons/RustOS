@@ -113,4 +113,3 @@ vectors:
 	HANDLER 3, 1// IRQ: 1
 	HANDLER 3, 2// FIQ: 2
 	HANDLER 3, 3// SError: 3
-

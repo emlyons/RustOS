@@ -10,6 +10,7 @@ use pi::interrupt::{Controller, Interrupt};
 use crate::console::{kprint, kprintln, CONSOLE};
 use crate::shell;
 
+
 use self::syndrome::Syndrome;
 use self::syscall::handle_syscall;
 
@@ -44,8 +45,6 @@ pub struct Info {
 /// the trap frame for the exception.
 #[no_mangle]
 pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
-    kprintln!("\n\n\n info: {:?} \n esr: {} \n\n\n", info, esr);
-
     if info.kind == Kind::Synchronous {
 	
 	match Syndrome::from(esr) {
@@ -57,8 +56,8 @@ pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
  
     }
 
-    kprintln!("exited shell");
     // TODO: return
+
     loop {
 	aarch64::nop();
     }
