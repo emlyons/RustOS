@@ -140,7 +140,7 @@ Phase 0 - 4 from [Assignment 2: Spawn](https://cs140e.sergio.bz/assignments/3-sp
 - [x] Subphase E: Exception Return
 
 ### Phase 2: It's a Process
-- [ ] Subphase A: Processes
+- [x] Subphase A: Processes
 - [ ] Subphase B: The First Process
 - [ ] Subphase C: Timer Interrupts
 - [ ] Subphase D: Scheduler
