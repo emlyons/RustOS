@@ -1,7 +1,7 @@
 use crate::common::IO_BASE;
 
 use volatile::prelude::*;
-use volatile::{Volatile, ReadVolatile};
+use volatile::{Volatile, ReadVolatile, Reserved};
 
 const INT_BASE: usize = IO_BASE + 0xB000 + 0x200;
 
@@ -68,7 +68,7 @@ impl From<usize> for Interrupt {
             51 => Gpio2,
             52 => Gpio3,
             57 => Uart,
-            _ => panic!("Unkonwn irq: {}", irq),
+            _ => panic!("Unknown irq: {}", irq),
         }
     }
 }
@@ -77,6 +77,19 @@ impl From<usize> for Interrupt {
 #[allow(non_snake_case)]
 struct Registers {
     // FIXME: Fill me in.
+    IRQ_PND_BASIC: ReadVolatile<u32>,
+    IRQ_PND_1: ReadVolatile<u32>,
+    IRQ_PND_2: ReadVolatile<u32>,
+    FIQ_CTRL: Volatile<u32>,
+    IRQ_ENBL_1: Volatile<u32>,
+    IRQ_ENBL_2: Volatile<u32>,
+    __r0: [Reserved<u8>; 3],
+    IRQ_ENBL_BASIC: Volatile<u8>,
+    IRQ_DSBL_1: Volatile<u32>,
+    IRQ_DSBL_2: Volatile<u32>,
+    __r1: [Reserved<u8>; 3],
+    IRQ_DSBL_BASIC: Volatile<u8>,
+    
 }
 
 /// An interrupt controller. Used to enable and disable interrupts as well as to
@@ -95,16 +108,38 @@ impl Controller {
 
     /// Enables the interrupt `int`.
     pub fn enable(&mut self, int: Interrupt) {
-        unimplemented!()
+	let irq_index = int as u32;
+	let mask = irq_index % 32;
+
+	let irq_enable = match irq_index {
+	    i if i < 32 => &mut self.registers.IRQ_ENBL_1,
+	    i if i < 64 => &mut self.registers.IRQ_ENBL_2,
+	    _ => unreachable!(),
+	};
+	
+	irq_enable.or_mask(mask);
     }
 
     /// Disables the interrupt `int`.
     pub fn disable(&mut self, int: Interrupt) {
-        unimplemented!()
+	let irq_index = int as u32;
+	let mask = irq_index % 32;
+
+	let irq_disable = match irq_index {
+	    i if i < 32 => &mut self.registers.IRQ_DSBL_1,
+	    i if i < 64 => &mut self.registers.IRQ_DSBL_2,
+	    _ => unreachable!(),
+	};
+	
+	irq_disable.or_mask(mask);
     }
 
     /// Returns `true` if `int` is pending. Otherwise, returns `false`.
     pub fn is_pending(&self, int: Interrupt) -> bool {
+	
+	// self.IRQ_PDN_1 [0:31]
+	// self.IRQ_PND_2 [32:63]
+	
         unimplemented!()
     }
 }

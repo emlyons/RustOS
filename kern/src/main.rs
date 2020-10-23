@@ -50,13 +50,8 @@ fn kmain() -> ! {
     let atag = atags::Atags::get();
     atag.for_each(|x| kprintln!("{:#?}\n\n", x));
      */
-    
-    unsafe {
-        ALLOCATOR.initialize();
-        FILESYSTEM.initialize();
-    }
-    
-    kprintln!("
+
+        kprintln!("
    .~~.   .~~.
   '. \\ ' ' / .'
    .~ .~~~..~.
@@ -69,6 +64,12 @@ fn kmain() -> ! {
        '~'
 Welcome to rustOS on Raspberry Pi!
 ");
+    
+    unsafe {
+        ALLOCATOR.initialize();
+        FILESYSTEM.initialize();
+	SCHEDULER.start();
+    }
 
     brk!(2);
 
