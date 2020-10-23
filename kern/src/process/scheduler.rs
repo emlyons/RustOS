@@ -66,6 +66,35 @@ impl GlobalScheduler {
     /// Starts executing processes in user space using timer interrupt based
     /// preemptive scheduling. This method should not return under normal conditions.
     pub fn start(&self) -> ! {
+	// make first process
+	let mut start_process = Process::new().expect("failed to allocate memory for new process");
+
+	let trap_frame = &mut start_process.context;
+	// fabricate TrapFrame
+
+	// set return address to process entry function
+	(&mut start_process.context).set_elr(temp_shell as *const() as u64);	
+	
+	// SPSR_EL1 -> zeroed will return to EL0	
+	// I[7] = 0
+	// M[4] = 0
+	// M[0:3] = 0b0000;
+	
+	// TPIDR_EL0 ??? Thread ID val???
+	
+	// SP_EL0 -> Top Of Stack
+	let stack_top = (&start_process).stack.top().as_u64();
+	(&mut start_process.context).set_sp(stack_top);	
+	let mut stack = start_process.stack;
+	    
+	// current EL1 IRQ interrupt mask off
+	unsafe{ aarch64::DAIF.set(0) };
+
+	// push all of the trap frame onto the stack!
+	// set LR to HANDLER + 4*5
+	
+	
+	
         unimplemented!("GlobalScheduler::start()")
     }
 
@@ -164,3 +193,10 @@ pub extern "C" fn  test_user_process() -> ! {
     }
 }
 
+
+// TODO: TEMP
+#[no_mangle]
+pub extern "C" fn temp_shell() {
+    use crate::shell;
+    shell::shell("(^'.')>");
+}

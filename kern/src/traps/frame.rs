@@ -29,5 +29,61 @@ impl TrapFrame {
 	    reserved: 0,
 	}
     }
+
+    pub fn set_elr(&mut self, val: u64) {
+	self.elr = val;
+    }
+
+    pub fn get_elr(&self) -> u64 {
+	self.elr
+    }
+
+    pub fn set_spsr(&mut self, val: u64) {
+	self.spsr = val;
+    }
+
+    pub fn get_spsr(&self) -> u64 {
+	self.spsr
+    }
+
+    pub fn set_sp(&mut self, val: u64) {
+	self.sp = val;
+    }
+
+    pub fn get_sp(&self) -> u64 {
+	self.sp
+    }
+
+    pub fn set_tpdir(&mut self, val: u64) {
+	self.tpdir = val;
+    }
+
+    pub fn get_tpdir(&self) -> u64 {
+	self.tpdir
+    }
+
+    pub fn set_q(&mut self, num: usize, val: u128) {
+	self.q[num] = val;
+    }
+
+    pub fn get_q(&self, num: usize) -> u128 {
+	self.q[num]
+    }
+
+    pub fn set_x(&mut self, num: usize, val: u64) {
+	self.x[num] = val;
+    }
+
+    pub fn get_x(&self, num: usize) -> u64 {
+	self.x[num]
+    }
+
+    pub fn set_lr(&mut self, val: u64) {
+	self.lr = val;
+    }
+
+    pub fn get_lr(&self) -> u64 {
+	self.lr
+    }
 }
 

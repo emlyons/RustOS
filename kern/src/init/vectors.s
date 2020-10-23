@@ -95,9 +95,6 @@ context_restore:
 	ldp     x22, x23, [SP], #16
 	ldp     x24, x25, [SP], #16
 	ldp     x26, x27, [SP], #16
-
-//	b 	context_save
-	
     ret
 
 .macro HANDLER source, kind

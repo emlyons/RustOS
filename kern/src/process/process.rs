@@ -38,7 +38,7 @@ impl Process {
 	    None => {return Err(OsError::NoMemory)},
 	};
 
-	let mut trap_frame = TrapFrame::new_zeroed();
+	let trap_frame = TrapFrame::new_zeroed();
 
 	Ok(Process {
 	    context: Box::<TrapFrame>::new(trap_frame),
@@ -46,7 +46,7 @@ impl Process {
 	    state: State::Ready,
 	})
     }
-
+    
     /// Load a program stored in the given path by calling `do_load()` method.
     /// Set trapframe `context` corresponding to the its page table.
     /// `sp` - the address of stack top
@@ -112,5 +112,9 @@ impl Process {
     /// Returns `false` in all other cases.
     pub fn is_ready(&mut self) -> bool {
         unimplemented!("Process::is_ready()")
+    }
+
+    pub fn set_exception_link(&mut self, addr: u64) {
+	(&mut self.context).set_elr(addr);
     }
 }

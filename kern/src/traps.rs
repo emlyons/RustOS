@@ -10,7 +10,6 @@ use pi::interrupt::{Controller, Interrupt};
 use crate::console::{kprint, kprintln, CONSOLE};
 use crate::shell;
 
-
 use self::syndrome::Syndrome;
 use self::syscall::handle_syscall;
 

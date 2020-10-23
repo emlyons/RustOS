@@ -93,7 +93,7 @@ unsafe fn switch_to_el1() {
 
         // change execution level to EL1 (ref: C5.2.19)
         SPSR_EL2.set(
-            (SPSR_EL2::M & 0b0101) // EL1h
+            (SPSR_EL2::M & 0b0101)
             | SPSR_EL2::F
             | SPSR_EL2::I
             | SPSR_EL2::D
