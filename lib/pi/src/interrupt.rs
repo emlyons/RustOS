@@ -136,10 +136,15 @@ impl Controller {
 
     /// Returns `true` if `int` is pending. Otherwise, returns `false`.
     pub fn is_pending(&self, int: Interrupt) -> bool {
+	let irq_index = int as u32;
+	let mask = irq_index % 32;
+
+	let irq_pending = match irq_index {
+	    i if i < 32 => &self.registers.IRQ_PND_1,
+	    i if i < 64 => &self.registers.IRQ_PND_2,
+	    _ => unreachable!(),
+	};
 	
-	// self.IRQ_PDN_1 [0:31]
-	// self.IRQ_PND_2 [32:63]
-	
-        unimplemented!()
+	irq_pending.has_mask(mask)
     }
 }

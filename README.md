@@ -15,18 +15,23 @@ Assignments from the [CS140 course](https://cs140e.sergio.bz/).
 │    ├── 0-rustlings
 │    ├── 1-blinky
 │    ├── 2-shell
-│    └── 3-fs : questions for lab3 *
+│    ├── 3-fs
+│    └── 4-spawn : questions for lab4 *
 ├── boot : bootloader
 ├── kern : the main os kernel *
-└── lib  : required libraries
-     ├── fat32 *
-     ├── pi *
-     ├── shim
-     ├── stack-vec
-     ├── ttywrite
-     ├── volatile
-     └── xmodem
-
+├── lib  : required libraries
+│     ├── aarch *
+│     ├── kernel_api *
+│     ├── fat32
+│     ├── pi
+│     ├── shim
+│     ├── stack-vec
+│     ├── ttywrite
+│     ├── volatile
+│     └── xmodem
+└── user  : user level program *
+      ├── fib *
+      └── sleep *
 ```
 
 ### Rust Versioning
@@ -141,7 +146,7 @@ Phase 0 - 4 from [Assignment 2: Spawn](https://cs140e.sergio.bz/assignments/3-sp
 
 ### Phase 2: It's a Process
 - [x] Subphase A: Processes
-- [ ] Subphase B: The First Process
+- [x] Subphase B: The First Process
 - [ ] Subphase C: Timer Interrupts
 - [ ] Subphase D: Scheduler
 - [ ] Subphase E: Sleep
