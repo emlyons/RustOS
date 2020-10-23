@@ -76,7 +76,6 @@ impl From<usize> for Interrupt {
 #[repr(C)]
 #[allow(non_snake_case)]
 struct Registers {
-    // FIXME: Fill me in.
     IRQ_PND_BASIC: ReadVolatile<u32>,
     IRQ_PND_1: ReadVolatile<u32>,
     IRQ_PND_2: ReadVolatile<u32>,
