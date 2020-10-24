@@ -108,7 +108,7 @@ impl Controller {
     /// Enables the interrupt `int`.
     pub fn enable(&mut self, int: Interrupt) {
 	let irq_index = int as u32;
-	let mask = irq_index % 32;
+	let shift_mask = irq_index % 32;
 
 	let irq_enable = match irq_index {
 	    i if i < 32 => &mut self.registers.IRQ_ENBL_1,
@@ -116,13 +116,13 @@ impl Controller {
 	    _ => unreachable!(),
 	};
 	
-	irq_enable.or_mask(mask);
+	irq_enable.write(0b1 << shift_mask);
     }
 
     /// Disables the interrupt `int`.
     pub fn disable(&mut self, int: Interrupt) {
 	let irq_index = int as u32;
-	let mask = irq_index % 32;
+	let shift_mask = irq_index % 32;
 
 	let irq_disable = match irq_index {
 	    i if i < 32 => &mut self.registers.IRQ_DSBL_1,
@@ -130,20 +130,20 @@ impl Controller {
 	    _ => unreachable!(),
 	};
 	
-	irq_disable.or_mask(mask);
+	irq_disable.write(0b1 << shift_mask);
     }
 
     /// Returns `true` if `int` is pending. Otherwise, returns `false`.
     pub fn is_pending(&self, int: Interrupt) -> bool {
 	let irq_index = int as u32;
-	let mask = irq_index % 32;
+	let shift_mask = irq_index % 32;
 
 	let irq_pending = match irq_index {
 	    i if i < 32 => &self.registers.IRQ_PND_1,
 	    i if i < 64 => &self.registers.IRQ_PND_2,
 	    _ => unreachable!(),
 	};
-	
-	irq_pending.has_mask(mask)
+
+	irq_pending.has_mask(0b1 << shift_mask)
     }
 }

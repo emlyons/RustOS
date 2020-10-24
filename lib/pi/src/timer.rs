@@ -40,13 +40,11 @@ impl Timer {
     /// interrupts for timer 1 are enabled and IRQs are unmasked, then a timer
     /// interrupt will be issued in `t` duration.
     pub fn tick_in(&mut self, t: Duration) {
-	let curr = self.read();
-	let dur = core::cmp::min(t.as_micros(), (core::u32::MAX - 1) as u128);
+	let current_time = self.registers.CLO.read();
+	let next_tick = current_time.wrapping_add(t.as_micros() as u32);
 	
-	let time = ((curr.as_micros() + dur) % core::u32::MAX as u128) as u32;
-	
-	self.registers.COMPARE[1].write(time);
-	self.registers.CS.and_mask(0b1101);
+	self.registers.COMPARE[1].write(next_tick);
+	self.registers.CS.write(0b0010);
     }
 }
 

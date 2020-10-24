@@ -147,7 +147,7 @@ Phase 0 - 4 from [Assignment 2: Spawn](https://cs140e.sergio.bz/assignments/3-sp
 ### Phase 2: It's a Process
 - [x] Subphase A: Processes
 - [x] Subphase B: The First Process
-- [ ] Subphase C: Timer Interrupts
+- [x] Subphase C: Timer Interrupts
 - [ ] Subphase D: Scheduler
 - [ ] Subphase E: Sleep
 

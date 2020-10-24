@@ -9,8 +9,10 @@ use crate::param::{PAGE_MASK, PAGE_SIZE, TICK, USER_IMG_BASE};
 use crate::process::{Id, Process, State};
 use crate::traps::TrapFrame;
 use crate::VMM;
+use crate::IRQ;
 
-use crate::console::{kprint, kprintln, CONSOLE};
+use pi::interrupt::{Interrupt, Controller};
+use pi::timer::{tick_in, current_time};
 
 /// Process scheduler for the entire machine.
 #[derive(Debug)]
@@ -68,9 +70,14 @@ impl GlobalScheduler {
     /// Starts executing processes in user space using timer interrupt based
     /// preemptive scheduling. This method should not return under normal conditions.
     pub fn start(&self) -> ! {
+
+	// systick
+	IRQ.register(Interrupt::Timer1, Box::new(systick_handler));
+	Controller::new().enable(Interrupt::Timer1);
+	tick_in(TICK);
+
 	//let mut scheduler = Scheduler::new();
-	let mut process = Process::new().expect("failed to allocate memory for new process");
-	
+	let mut process = Process::new().expect("failed to allocate memory for new process");	
 	process.context.elr = temp_shell as *mut u8 as u64;
 	process.context.spsr = 0b1101000000;
 	process.context.sp = process.stack.top().as_u64();
@@ -182,16 +189,16 @@ pub extern "C" fn  test_user_process() -> ! {
     }
 }
 
-
 // TODO: TEMP
 #[no_mangle]
 pub extern "C" fn temp_shell() {
     use crate::shell;
-    unsafe{ asm!("brk 1" :::: "volatile"); };
-    unsafe{ asm!("brk 2" :::: "volatile"); };
-    kprintln!("\n\n\n made it into process! \n\n\n");
     loop {
-	shell::shell("(^'.')>");
-	unsafe{ asm!("brk 33" :::: "volatile"); };
+	shell::shell("$");
     }
+}
+
+// TODO: SYSTICK HANDLER should go where?
+pub fn systick_handler(tf: &mut TrapFrame) {
+    tick_in(TICK);
 }

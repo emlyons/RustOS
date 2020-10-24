@@ -68,13 +68,12 @@ Welcome to rustOS on Raspberry Pi!
     unsafe {
         ALLOCATOR.initialize();
         FILESYSTEM.initialize();
+	IRQ.initialize();
 	SCHEDULER.start();
     }
 
-    brk!(2);
-
     loop {
-	shell::shell("> ");
+	shell::shell(">");
     }
 
 }

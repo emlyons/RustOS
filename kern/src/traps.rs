@@ -7,7 +7,7 @@ pub use self::frame::TrapFrame;
 
 use pi::interrupt::{Controller, Interrupt};
 
-use crate::console::{kprint, kprintln, CONSOLE};
+use crate::IRQ;
 use crate::shell;
 
 use self::syndrome::Syndrome;
@@ -38,13 +38,24 @@ pub struct Info {
     kind: Kind,
 }
 
-fn handle_synchronous(info: Info, esr: u32, tf: &mut TrapFrame) {    
+fn handle_synchronous(info: Info, esr: u32, tf: &mut TrapFrame) {
+    tf.elr += 4;
+    
     match Syndrome::from(esr) {
 	Syndrome::Brk(comment) => {
-	    shell::shell("$ ");
+	    shell::shell("brk]");
 	},
 	_ => {},
     };
+}
+
+fn handle_irq(info: Info, esr: u32, tf: &mut TrapFrame) {
+    let int_ctrl = Controller::new();
+    for int in Interrupt::iter() {
+	if int_ctrl.is_pending(*int) {
+	    IRQ.invoke(*int, tf);
+	}
+    }
 }
 
 /// This function is called when an exception occurs. The `info` parameter
@@ -59,10 +70,11 @@ pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
     
     match info.kind {
 	Kind::Synchronous => {
-	    tf.elr += 4;
 	    handle_synchronous(info, esr, tf);
 	},
-	Kind::Irq => {},
+	Kind::Irq => {
+	    handle_irq(info, esr, tf);
+	},
 	Kind::Fiq => {},
 	Kind::SError => {}, 
     };
