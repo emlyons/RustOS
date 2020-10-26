@@ -69,6 +69,7 @@ Welcome to rustOS on Raspberry Pi!
         ALLOCATOR.initialize();
         FILESYSTEM.initialize();
 	IRQ.initialize();
+	SCHEDULER.initialize();
 	SCHEDULER.start();
     }
 
@@ -76,4 +77,12 @@ Welcome to rustOS on Raspberry Pi!
 	shell::shell(">");
     }
 
+}
+
+// TODO: TEMP
+pub extern "C" fn temp_shell() {
+    use crate::shell;
+    loop {
+	shell::shell("$");
+    }
 }

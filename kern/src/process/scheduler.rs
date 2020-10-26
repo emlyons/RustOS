@@ -11,6 +11,7 @@ use crate::process::{Id, Process, State};
 use crate::traps::TrapFrame;
 use crate::VMM;
 use crate::IRQ;
+use crate::temp_shell;
 
 use pi::interrupt::{Interrupt, Controller};
 use pi::timer::{tick_in, current_time};
@@ -82,14 +83,15 @@ impl GlobalScheduler {
 	process.context.elr = temp_shell as *mut u8 as u64;
 	process.context.spsr = 0b1101000000;
 	process.context.sp = process.stack.top().as_u64();
-
+	self.add(process).expect("failed to add first process to scheduler");
+	
 	unsafe{
 	    asm!("mov sp, $0
 		 bl context_restore
 		 adr lr, _start
 		 mov sp, lr
 	         mov lr, xzr
-                 eret" :: "r"(&*process.context) :: "volatile");
+                 eret" :: "r"(&*self.0.lock().as_mut().unwrap().processes[0].context) :: "volatile");
 	};
 
 	loop {};
@@ -97,7 +99,10 @@ impl GlobalScheduler {
 
     /// Initializes the scheduler and add userspace processes to the Scheduler
     pub unsafe fn initialize(&self) {
-        unimplemented!("GlobalScheduler::initialize()")
+	let locked = &mut self.0.lock();
+	if locked.is_none() {
+	    locked.replace(Scheduler::new());
+	}
     }
 
     // The following method may be useful for testing Phase 3:
@@ -136,6 +141,7 @@ impl Scheduler {
     fn next_id(&mut self) -> Option<Id> {
 	let last_id = self.last_id?;
 	let next_id = last_id.checked_add(1)?;
+	self.last_id.replace(next_id);
 	Some(next_id)
     }
 
@@ -148,7 +154,7 @@ impl Scheduler {
     /// is called, that process is executing on the CPU.
     fn add(&mut self, mut process: Process) -> Option<Id> {
 	let id = self.next_id()?;
-	process.context.tpdir = id;
+	process.context.tpidr = id;
 	self.processes.push_back(process);
 	Some(id)
     }
@@ -164,7 +170,7 @@ impl Scheduler {
 	for index in 0..self.processes.len(){
 	    match self.processes[index].state {
 		State::Running => {
-		    if self.processes[index].context.tpdir == tf.tpdir {
+		    if self.processes[index].context.tpidr == tf.tpidr {
 			let mut process = self.processes.remove(index).expect("removing sheduled out process from queue");
 			process.state = new_state;
 			replace(&mut *process.context, *tf);
@@ -193,9 +199,9 @@ impl Scheduler {
 		let mut process = self.processes.remove(index).expect("removing sheduled out process from queue");
 		process.state = State::Running;
 		replace(&mut *tf, *process.context);
-		assert_eq!(tf.tpdir, process.context.tpdir);
+		assert_eq!(tf.tpidr, process.context.tpidr);
 		self.processes.push_front(process);
-		return Some(tf.tpdir);
+		return Some(tf.tpidr);
 	    }
 	}
 	None
@@ -207,8 +213,8 @@ impl Scheduler {
     fn kill(&mut self, tf: &mut TrapFrame) -> Option<Id> {
 	if self.schedule_out(State::Dead, tf) {
 	    let process = self.processes.pop_back().expect("removing process on kill");
-	    assert_eq!(tf.tpdir, process.context.tpdir);
-	    Some(tf.tpdir)
+	    assert_eq!(tf.tpidr, process.context.tpidr);
+	    Some(tf.tpidr)
 	}
 	else {
 	    None
@@ -235,16 +241,12 @@ pub extern "C" fn  test_user_process() -> ! {
     }
 }
 
-// TODO: TEMP
-#[no_mangle]
-pub extern "C" fn temp_shell() {
-    use crate::shell;
-    loop {
-	shell::shell("$");
-    }
-}
-
 // TODO: SYSTICK HANDLER should go where?
 pub fn systick_handler(tf: &mut TrapFrame) {
+    use crate::SCHEDULER;
+
+    // if initialized
+    SCHEDULER.switch(State::Ready, tf);
+
     tick_in(TICK);
 }
