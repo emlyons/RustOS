@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use alloc::collections::vec_deque::VecDeque;
 use core::fmt;
+use core::mem::replace;
 
 use aarch64::*;
 
@@ -126,7 +127,16 @@ pub struct Scheduler {
 impl Scheduler {
     /// Returns a new `Scheduler` with an empty queue.
     fn new() -> Scheduler {
-        unimplemented!("Scheduler::new()")
+	Scheduler {
+	    processes: VecDeque::<Process>::new(),
+	    last_id: Some(0),
+	}
+    }
+
+    fn next_id(&mut self) -> Option<Id> {
+	let last_id = self.last_id?;
+	let next_id = last_id.checked_add(1)?;
+	Some(next_id)
     }
 
     /// Adds a process to the scheduler's queue and returns that process's ID if
@@ -137,7 +147,10 @@ impl Scheduler {
     /// It is the caller's responsibility to ensure that the first time `switch`
     /// is called, that process is executing on the CPU.
     fn add(&mut self, mut process: Process) -> Option<Id> {
-        unimplemented!("Scheduler::add()")
+	let id = self.next_id()?;
+	process.context.tpdir = id;
+	self.processes.push_back(process);
+	Some(id)
     }
 
     /// Finds the currently running process, sets the current process's state
@@ -147,10 +160,25 @@ impl Scheduler {
     ///
     /// If the `processes` queue is empty or there is no current process,
     /// returns `false`. Otherwise, returns `true`.
-    fn schedule_out(&mut self, new_state: State, tf: &mut TrapFrame) -> bool {
-        unimplemented!("Scheduler::schedule_out()")
+    fn schedule_out(&mut self, new_state: State, tf: &mut TrapFrame) -> bool {	
+	for index in 0..self.processes.len(){
+	    match self.processes[index].state {
+		State::Running => {
+		    if self.processes[index].context.tpdir == tf.tpdir {
+			let mut process = self.processes.remove(index).expect("removing sheduled out process from queue");
+			process.state = new_state;
+			replace(&mut *process.context, *tf);
+			self.processes.push_back(process);
+			return true;
+		    }
+		},
+		_ => continue,// TODO: can break after verification
+	    }
+	}
+	
+	false
     }
-
+    
     /// Finds the next process to switch to, brings the next process to the
     /// front of the `processes` queue, changes the next process's state to
     /// `Running`, and performs context switch by restoring the next process`s
@@ -159,14 +187,32 @@ impl Scheduler {
     /// If there is no process to switch to, returns `None`. Otherwise, returns
     /// `Some` of the next process`s process ID.
     fn switch_to(&mut self, tf: &mut TrapFrame) -> Option<Id> {
-        unimplemented!("Scheduler::switch_to()")
+
+	for index in 0..self.processes.len(){
+	    if self.processes[index].is_ready() {
+		let mut process = self.processes.remove(index).expect("removing sheduled out process from queue");
+		process.state = State::Running;
+		replace(&mut *tf, *process.context);
+		assert_eq!(tf.tpdir, process.context.tpdir);
+		self.processes.push_front(process);
+		return Some(tf.tpdir);
+	    }
+	}
+	None
     }
 
     /// Kills currently running process by scheduling out the current process
     /// as `Dead` state. Removes the dead process from the queue, drop the
     /// dead process's instance, and returns the dead process's process ID.
     fn kill(&mut self, tf: &mut TrapFrame) -> Option<Id> {
-        unimplemented!("Scheduler::kill()")
+	if self.schedule_out(State::Dead, tf) {
+	    let process = self.processes.pop_back().expect("removing process on kill");
+	    assert_eq!(tf.tpdir, process.context.tpdir);
+	    Some(tf.tpdir)
+	}
+	else {
+	    None
+	}
     }
 }
 

@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use shim::io;
 use shim::path::Path;
+use core::mem;
 
 use aarch64;
 
@@ -111,10 +112,35 @@ impl Process {
     ///
     /// Returns `false` in all other cases.
     pub fn is_ready(&mut self) -> bool {
-        unimplemented!("Process::is_ready()")
+	let state = mem::replace(&mut self.state, State::Ready);
+	
+	match state {
+	    State::Ready => {
+		true
+	    },
+	    
+	    State::Waiting(mut event) => {
+		if event(self) {
+		    true
+		} else {
+		    mem::replace(&mut self.state, State::Waiting(event));
+		    false
+		}
+	    },
+	    
+	    State::Running => {
+		mem::replace(&mut self.state, State::Running);
+		false
+	    },
+	    
+	    State::Dead => {
+		mem::replace(&mut self.state, State::Dead);
+		false
+	    },
+	}
     }
-
+    
     pub fn set_exception_link(&mut self, addr: u64) {
-	(&mut self.context).set_elr(addr);
+	(&mut self.context).elr = addr;
     }
 }
