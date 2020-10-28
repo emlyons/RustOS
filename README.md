@@ -148,8 +148,8 @@ Phase 0 - 4 from [Assignment 2: Spawn](https://cs140e.sergio.bz/assignments/3-sp
 - [x] Subphase A: Processes
 - [x] Subphase B: The First Process
 - [x] Subphase C: Timer Interrupts
-- [ ] Subphase D: Scheduler
-- [ ] Subphase E: Sleep
+- [x] Subphase D: Scheduler
+- [x] Subphase E: Sleep
 
 ### Phase 3: Memory Management Unit
 - [ ] Subphase A: Virtual Memory
