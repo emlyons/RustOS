@@ -4,9 +4,12 @@ use stack_vec::StackVec;
 use alloc::vec::Vec;
 
 use pi::atags::Atags;
+use pi::interrupt::{Controller, Interrupt};
 
 use fat32::traits::FileSystem;
 use fat32::traits::{Dir, File, Entry};
+
+use kernel_api::syscall;
 
 use crate::console::{kprint, kprintln, CONSOLE};
 use crate::ALLOCATOR;
@@ -15,6 +18,9 @@ use crate::FILESYSTEM;
 use shim::io::{Read, Write};
 use core::str;
 use pi::gpio;
+
+use core::str::FromStr;
+use core::time::Duration;
 
 const NEWLINE: u8 = 10;
 const RETURN: u8 = 13;
@@ -123,6 +129,7 @@ fn execute(cmd: &Command, shell: &mut Shell) {
 	"pwd" => print_directory(shell),
 	"cat" => concatenate_file(cmd, shell),
 	"exit" => exit(shell),
+	"sleep" => sleep(cmd),
 	_ => {
 	    kprint!("\nunknown command");
 	},
@@ -139,14 +146,12 @@ fn echo (cmd: &Command) {
 
 fn binary_led(cmd: &Command) {
     assert_eq!(cmd.args[0], "binled");
-    if (cmd.args.len() == 2) {
-	// parse number from string, if unsuccessful turn off leds
-	let mut val: u8 = 0;
-	let arg = cmd.args[1].parse::<u8>();
-	if arg.is_ok() {
-	    val = arg.unwrap();
-	}
-	
+    if (cmd.args.len() != 2) {
+	kprint!("\ninvalid argument");
+	return;
+    }
+
+    if let Ok(val) = u8::from_str(cmd.args[1]) {    
 	let mut _gpio = [gpio::Gpio::new(5).into_output(),
 			 gpio::Gpio::new(6).into_output(),
 			 gpio::Gpio::new(13).into_output(),
@@ -165,10 +170,12 @@ fn binary_led(cmd: &Command) {
 
 fn change_directory(cmd: &Command, shell: &mut Shell) {
     assert_eq!(cmd.args[0], "cd");
-    if (cmd.args.len() == 2) {
-	if !shell.change_pwd(&cmd.args[1]) {
-	    kprint!("\n{}: {}: No such file or directory", cmd.args[0], cmd.args[1]);
-	}
+    if (cmd.args.len() != 2) {
+	return;
+    }
+    
+    if !shell.change_pwd(&cmd.args[1]) {
+	kprint!("\n{}: {}: No such file or directory", cmd.args[0], cmd.args[1]);
     }
 }
 
@@ -219,22 +226,11 @@ fn list_directory(cmd: &Command, shell: &mut Shell) {
 			false => {kprint!("-");},
 		    }
 		    
-		    kprint!(" {:02}/", entry.metadata().created().day());
-		    kprint!("{:02}/", entry.metadata().created().month());
-		    kprint!("{:04} ", entry.metadata().created().year());
-		    kprint!("{:02}:", entry.metadata().created().hour());
-		    kprint!("{:02}:", entry.metadata().created().minute());
-		    kprint!("{:02} ", entry.metadata().created().second());
+		    kprint!(" {:02}/{:02}/{:04} {:02}:{:02}:{:02} ", entry.metadata().created().day(), entry.metadata().created().month(), entry.metadata().created().year(), entry.metadata().created().hour(), entry.metadata().created().minute(), entry.metadata().created().second());
 		
-		    kprint!("{:02}/", entry.metadata().modified().day());
-		    kprint!("{:02}/", entry.metadata().modified().month());
-		    kprint!("{:04} ", entry.metadata().modified().year());
-		    kprint!("{:02}:", entry.metadata().modified().hour());
-		    kprint!("{:02}:", entry.metadata().modified().minute());
-		    kprint!("{:02} ", entry.metadata().modified().second());
+		    kprint!("{:02}/{:02}/{:04} {:02}:{:02}:{:02} ", entry.metadata().modified().day(), entry.metadata().modified().month(), entry.metadata().modified().year(), entry.metadata().modified().hour(), entry.metadata().modified().minute(), entry.metadata().modified().second());
 		
-		    kprint!(" {:10} ", entry.metadata().file_size());
-		    kprint!(" {}", entry.name());
+		    kprint!(" {:10} {}", entry.metadata().file_size(), entry.name());
 		}
 	    }
 	}
@@ -250,35 +246,55 @@ fn print_directory(shell: &mut Shell) {
 
 fn concatenate_file(cmd: &Command, shell: &mut Shell) {
     assert_eq!(cmd.args[0], "cat");
-    if (cmd.args.len() == 2) {
-	let mut file_path = shell.pwd.clone();
-	file_path.push(Path::new(cmd.args[1]));
-	
-	if let Ok(entry) = FILESYSTEM.open(file_path.as_path()) {
-	    if let Some(mut file) = entry.into_file() {
-		kprintln!("");
-		let mut read_bytes = 0;
-		let mut data = [0u8; 1024];
-		while read_bytes < file.size() {
-		    if let Ok(bytes_returned) = file.read(&mut data) {
-			if let Ok(text) = str::from_utf8(&data[0..bytes_returned]) {
-			    kprint!("{:?}", text);
-			}
-			read_bytes += bytes_returned as u64;
-		    }
-		    else {
-			return;
-		    }
-		}
-		return;
-	    }
-	}
-	kprint!("\n{}: {}: No such file", cmd.args[0], cmd.args[1]);
+    if (cmd.args.len() != 2) {
+	kprint!("\ninvalid argument");
+	return;
     }
+    
+    let mut file_path = shell.pwd.clone();
+    file_path.push(Path::new(cmd.args[1]));
+	
+    if let Ok(entry) = FILESYSTEM.open(file_path.as_path()) {
+	if let Some(mut file) = entry.into_file() {
+	    kprintln!("");
+	    let mut read_bytes = 0;
+	    let mut data = [0u8; 1024];
+	    while read_bytes < file.size() {
+		if let Ok(bytes_returned) = file.read(&mut data) {
+		    if let Ok(text) = str::from_utf8(&data[0..bytes_returned]) {
+			kprint!("{:?}", text);
+		    }
+		    read_bytes += bytes_returned as u64;
+		}
+		else {
+		    return;
+		}
+	    }
+	    return;
+	}
+    }
+    kprint!("\n{}: {}: No such file", cmd.args[0], cmd.args[1]);
 }
 
 fn exit(shell: &mut Shell) {
     shell.active = false;
+}
+
+fn sleep(cmd: &Command) {   
+    assert_eq!(cmd.args[0], "sleep");
+    if (cmd.args.len() != 2) {
+	kprint!("\ninvalid argument");
+	return;
+    }
+    
+    if let Ok(ms) = u64::from_str(cmd.args[1]) {
+	let dur = Duration::from_millis(ms);
+	if let Ok(duration) = syscall::sleep(dur) {
+	    kprint!("\nslept for {} milliseconds", duration.as_millis());
+	} else {
+	    kprint!("\nan error occurred");
+	}
+    }
 }
 
 // TODO: THIS IS FOR DEBUGGING AND SHOULD NOT REMAIN

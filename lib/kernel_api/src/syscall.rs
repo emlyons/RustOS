@@ -23,15 +23,12 @@ pub fn sleep(span: Duration) -> OsResult<Duration> {
     let ms = span.as_millis() as u64;
     let mut ecode: u64;
     let mut elapsed_ms: u64;
-
+    
     unsafe {
-        asm!("mov x0, $2
-              svc $3
-              mov $0, x0
-              mov $1, x7"
-             : "=r"(elapsed_ms), "=r"(ecode)
-             : "r"(ms), "i"(NR_SLEEP)
-             : "x0", "x7"
+        asm!("svc $2"
+             : "={x0}"(elapsed_ms), "={x7}"(ecode)
+             : "i"(NR_SLEEP), "{x0}"(ms)
+             : "memory"
              : "volatile");
     }
 

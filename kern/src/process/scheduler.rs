@@ -58,7 +58,7 @@ impl GlobalScheduler {
             if let Some(id) = rtn {
                 return id;
             }
-            aarch64::wfe();
+            aarch64::wfi();
         }
     }
 
@@ -73,17 +73,26 @@ impl GlobalScheduler {
     /// preemptive scheduling. This method should not return under normal conditions.
     pub fn start(&self) -> ! {
 
-	// systick
-	IRQ.register(Interrupt::Timer1, Box::new(systick_handler));
-	Controller::new().enable(Interrupt::Timer1);
-	tick_in(TICK);
+	// first process
+	let mut process = Process::new().expect("failed to allocate memory for new process");
+	process.context.elr = temp_shell as *mut u8 as u64;
+	process.context.spsr = 0b1101000000;
+	process.context.sp = process.stack.top().as_u64();
+	process.state = State::Running;
+	self.add(process).expect("failed to add first process to scheduler");
 
-	//let mut scheduler = Scheduler::new();
-	let mut process = Process::new().expect("failed to allocate memory for new process");	
+	// second process
+/*	process = Process::new().expect("failed to allocate memory for new process");
 	process.context.elr = temp_shell as *mut u8 as u64;
 	process.context.spsr = 0b1101000000;
 	process.context.sp = process.stack.top().as_u64();
 	self.add(process).expect("failed to add first process to scheduler");
+	 */
+
+	// systick
+	IRQ.register(Interrupt::Timer1, Box::new(systick_handler));
+	Controller::new().enable(Interrupt::Timer1);
+	tick_in(TICK);
 	
 	unsafe{
 	    asm!("mov sp, $0
@@ -166,14 +175,16 @@ impl Scheduler {
     ///
     /// If the `processes` queue is empty or there is no current process,
     /// returns `false`. Otherwise, returns `true`.
-    fn schedule_out(&mut self, new_state: State, tf: &mut TrapFrame) -> bool {	
+    fn schedule_out(&mut self, new_state: State, tf: &mut TrapFrame) -> bool {
+	
 	for index in 0..self.processes.len(){
+
 	    match self.processes[index].state {
 		State::Running => {
 		    if self.processes[index].context.tpidr == tf.tpidr {
 			let mut process = self.processes.remove(index).expect("removing sheduled out process from queue");
 			process.state = new_state;
-			replace(&mut *process.context, *tf);
+			*(process.context) = tf.clone();
 			self.processes.push_back(process);
 			return true;
 		    }

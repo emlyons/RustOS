@@ -8,7 +8,7 @@ pub use self::frame::TrapFrame;
 use pi::interrupt::{Controller, Interrupt};
 
 use crate::IRQ;
-use crate::shell;
+use crate::shell::shell;
 
 use self::syndrome::Syndrome;
 use self::syscall::handle_syscall;
@@ -42,8 +42,11 @@ fn handle_synchronous(info: Info, esr: u32, tf: &mut TrapFrame) {
     tf.elr += 4;
     
     match Syndrome::from(esr) {
-	Syndrome::Brk(comment) => {
-	    shell::shell("brk]");
+	Syndrome::Brk(n) => {
+	    shell("brk]");
+	},
+	Syndrome::Svc(n) => {
+	    handle_syscall(n, tf);
 	},
 	_ => {},
     };

@@ -113,7 +113,6 @@ impl Process {
     /// Returns `false` in all other cases.
     pub fn is_ready(&mut self) -> bool {
 	let state = mem::replace(&mut self.state, State::Ready);
-	
 	match state {
 	    State::Ready => {
 		true
