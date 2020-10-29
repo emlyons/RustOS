@@ -37,12 +37,14 @@ const_assert_size!(L2PageTable, PAGE_SIZE);
 impl L2PageTable {
     /// Returns a new `L2PageTable`
     fn new() -> L2PageTable {
-        unimplemented!("L2PageTable::new()")
+	let entries = unsafe {core::slice::from_raw_parts_mut(ALLOCATOR.alloc(Page::layout()) as *mut L2PageTable, 8192)};
+	//let testo = unsafe {entries as [RawL2Entry; 8192]};
+	L2PageTable {entries: [RawL2Entry::new(0); 8192]}
     }
 
     /// Returns a `PhysicalAddr` of the pagetable.
     pub fn as_ptr(&self) -> PhysicalAddr {
-        unimplemented!("L2PageTable::as_ptr()")
+	PhysicalAddr::from(self.as_ptr())
     }
 }
 
@@ -82,7 +84,7 @@ impl L3PageTable {
 
     /// Returns a `PhysicalAddr` of the pagetable.
     pub fn as_ptr(&self) -> PhysicalAddr {
-        unimplemented!("L3PageTable::as_ptr()")
+	PhysicalAddr::from(self.as_ptr())
     }
 }
 
