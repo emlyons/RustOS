@@ -152,7 +152,7 @@ Phase 0 - 4 from [Assignment 2: Spawn](https://cs140e.sergio.bz/assignments/3-sp
 - [x] Subphase E: Sleep
 
 ### Phase 3: Memory Management Unit
-- [ ] Subphase A: Virtual Memory
+- [x] Subphase A: Virtual Memory
 - [ ] Subphase B: Page Table
 
 ### Phase 4: Programs In The Disk
