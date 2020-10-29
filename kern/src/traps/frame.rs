@@ -8,13 +8,15 @@ pub struct TrapFrame {
     pub spsr: u64,
     pub sp: u64,
     pub tpidr: u64,
+    pub ttbr0: u64,
+    pub ttbr1: u64,
     pub q: [u128; 32],
     pub x: [u64; 30],
     pub lr: u64,
     pub reserved: u64,
 }
 
-const_assert_size!(TrapFrame, 800);
+const_assert_size!(TrapFrame, 816);
 
 impl TrapFrame {
     pub fn new_zeroed() -> TrapFrame {
@@ -23,6 +25,8 @@ impl TrapFrame {
 	    spsr: 0,
 	    sp: 0,
 	    tpidr: 0,
+	    ttbr0: 0,
+	    ttbr1: 0,
 	    q: [0u128; 32],
 	    x: [0u64; 30],
 	    lr: 0,
