@@ -101,7 +101,21 @@ impl PageTable {
     /// Returns a new `Box` containing `PageTable`.
     /// Entries in L2PageTable should be initialized properly before return.
     fn new(perm: u64) -> Box<PageTable> {
-        unimplemented!("PageTable::new()")
+	let mut l2_page_table = L2PageTable::new();
+	let l3_page_table = [L3PageTable::new(), L3PageTable::new()];
+
+	for (index, entry) in l3_page_table.iter().enumerate() {
+	    l2_page_table.entries[index].set_value(entry.as_ptr().as_u64() >> PAGE_ALIGN, RawL2Entry::ADDR);
+	    l2_page_table.entries[index].set_value(1, RawL2Entry::AF);
+	    l2_page_table.entries[index].set_value(EntrySh::ISh, RawL2Entry::SH);
+	    l2_page_table.entries[index].set_value(perm, RawL2Entry::AP);
+	    l2_page_table.entries[index].set_value(1, RawL2Entry::NS);
+	    l2_page_table.entries[index].set_value(EntryAttr::Mem, RawL2Entry::ATTR);
+	    l2_page_table.entries[index].set_value(EntryType::Table, RawL2Entry::TYPE);
+	    l2_page_table.entries[index].set_value(EntryValid::Valid, RawL2Entry::VALID);
+	}
+	
+	Box::<PageTable>::new(PageTable {l2: l2_page_table, l3: l3_page_table})
     }
 
     /// Returns the (L2index, L3index) extracted from the given virtual address.
@@ -113,7 +127,7 @@ impl PageTable {
     /// Panics if the virtual address is not properly aligned to page size.
     /// Panics if extracted L2index exceeds the number of L3PageTable.
     fn locate(va: VirtualAddr) -> (usize, usize) {
-        unimplemented!("PageTable::localte()")
+        unimplemented!("PageTable::locate()")
     }
 
     /// Returns `true` if the L3entry indicated by the given virtual address is valid.
