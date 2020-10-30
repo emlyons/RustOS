@@ -37,9 +37,9 @@ const_assert_size!(L2PageTable, PAGE_SIZE);
 impl L2PageTable {
     /// Returns a new `L2PageTable`
     fn new() -> L2PageTable {
-	let entries = unsafe {core::slice::from_raw_parts_mut(ALLOCATOR.alloc(Page::layout()) as *mut L2PageTable, 8192)};
-	//let testo = unsafe {entries as [RawL2Entry; 8192]};
-	L2PageTable {entries: [RawL2Entry::new(0); 8192]}
+	let type_ptr = unsafe {ALLOCATOR.alloc(Page::layout()) as *mut [RawL2Entry; 8192]};
+	let entries  = unsafe{*type_ptr};
+	L2PageTable {entries: entries}
     }
 
     /// Returns a `PhysicalAddr` of the pagetable.
@@ -59,13 +59,16 @@ impl L3Entry {
 
     /// Returns `true` if the L3Entry is valid and `false` otherwise.
     fn is_valid(&self) -> bool {
-        unimplemented!("L3Entry::is_valid()")
+	self.0.get_value(RawL2Entry::VALID) != 0
     }
 
     /// Extracts `ADDR` field of the L3Entry and returns as a `PhysicalAddr`
     /// if valid. Otherwise, return `None`.
     fn get_page_addr(&self) -> Option<PhysicalAddr> {
-        unimplemented!("LeEntry::get_page_add()")
+	match self.is_valid() {
+            true => Some(PhysicalAddr::from(self.0.get_value(RawL2Entry::ADDR))),
+	    false => None,
+	}
     }
 }
 
