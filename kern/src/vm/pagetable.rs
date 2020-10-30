@@ -5,6 +5,7 @@ use core::slice::Iter;
 use alloc::boxed::Box;
 use alloc::fmt;
 use core::alloc::{GlobalAlloc, Layout};
+use core::mem::size_of;
 
 use crate::allocator;
 use crate::param::*;
@@ -30,16 +31,14 @@ impl Page {
 #[repr(C)]
 #[repr(align(65536))]
 pub struct L2PageTable {
-    pub entries: [RawL2Entry; 8192],
+    pub entries: [RawL2Entry; PAGE_SIZE / size_of::<RawL2Entry>()],
 }
 const_assert_size!(L2PageTable, PAGE_SIZE);
 
 impl L2PageTable {
     /// Returns a new `L2PageTable`
     fn new() -> L2PageTable {
-	let type_ptr = unsafe {ALLOCATOR.alloc(Page::layout()) as *mut [RawL2Entry; 8192]};
-	let entries  = unsafe{*type_ptr};
-	L2PageTable {entries: entries}
+	L2PageTable {entries: [RawL2Entry::new(0); PAGE_SIZE / size_of::<RawL2Entry>()]}
     }
 
     /// Returns a `PhysicalAddr` of the pagetable.
@@ -54,7 +53,7 @@ pub struct L3Entry(RawL3Entry);
 impl L3Entry {
     /// Returns a new `L3Entry`.
     fn new() -> L3Entry {
-        unimplemented!("L3Entry::new()")
+	L3Entry(RawL3Entry::new(0))
     }
 
     /// Returns `true` if the L3Entry is valid and `false` otherwise.
@@ -75,14 +74,14 @@ impl L3Entry {
 #[repr(C)]
 #[repr(align(65536))]
 pub struct L3PageTable {
-    pub entries: [L3Entry; 8192],
+    pub entries: [L3Entry; PAGE_SIZE / size_of::<L3Entry>()],
 }
 const_assert_size!(L3PageTable, PAGE_SIZE);
 
 impl L3PageTable {
     /// Returns a new `L3PageTable`.
     fn new() -> L3PageTable {
-        unimplemented!("L3PageTable::new()")
+	L3PageTable {entries: [L3Entry::new(); PAGE_SIZE / size_of::<L3Entry>()]}
     }
 
     /// Returns a `PhysicalAddr` of the pagetable.
