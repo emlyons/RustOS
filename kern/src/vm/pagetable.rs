@@ -127,7 +127,16 @@ impl PageTable {
     /// Panics if the virtual address is not properly aligned to page size.
     /// Panics if extracted L2index exceeds the number of L3PageTable.
     fn locate(va: VirtualAddr) -> (usize, usize) {
-        unimplemented!("PageTable::locate()")
+	assert_eq!(va.as_u64() as usize % PAGE_SIZE, 0);
+	
+	let num_l3 = 2;// extract from struct
+
+	let l3_index = (va.as_u64() >> 16) & 0x1FFF;
+	let l2_index = ((va.as_u64() >> 16) >> 13) & 0x1FFF;
+
+	assert!(l2_index < num_l3);
+
+	(l3_index as usize, l2_index as usize)
     }
 
     /// Returns `true` if the L3entry indicated by the given virtual address is valid.
