@@ -142,25 +142,41 @@ impl PageTable {
     /// Returns `true` if the L3entry indicated by the given virtual address is valid.
     /// Otherwise, `false` is returned.
     pub fn is_valid(&self, va: VirtualAddr) -> bool {
-        unimplemented!("PageTable::is_valid()")
+	let (il2, il3) = PageTable::locate(va);
+
+	let l2_entry = self.l2.entries[il2];
+	let l3_table = l2_entry.get_value(RawL2Entry::ADDR);
+
+	let l3_entry = self.l3[l3_table as usize].entries[il3];
+	match l3_entry.0.get_value(RawL3Entry::VALID) {
+	    0 => return false,
+	    _ => return true,
+	}
     }
 
     /// Returns `true` if the L3entry indicated by the given virtual address is invalid.
     /// Otherwise, `true` is returned.
     pub fn is_invalid(&self, va: VirtualAddr) -> bool {
-        unimplemented!("PageTable::is_invalid()")
+	!self.is_valid(va)
     }
 
     /// Set the given RawL3Entry `entry` to the L3Entry indicated by the given virtual
     /// address.
     pub fn set_entry(&mut self, va: VirtualAddr, entry: RawL3Entry) -> &mut Self {
-        unimplemented!("PageTable::set_entry()")
+	let (il2, il3) = PageTable::locate(va);
+
+	let l2_entry = self.l2.entries[il2];
+	let l3_table = l2_entry.get_value(RawL2Entry::ADDR);
+
+	let mut l3_entry = self.l3[l3_table as usize].entries[il3];
+	l3_entry.0.set(entry.get());
+	self
     }
 
     /// Returns a base address of the pagetable. The returned `PhysicalAddr` value
     /// will point the start address of the L2PageTable.
     pub fn get_baddr(&self) -> PhysicalAddr {
-        unimplemented!("PageTable::get_baddr()")
+        self.l2.as_ptr()
     }
 }
 
