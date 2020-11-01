@@ -210,6 +210,13 @@ impl KernPageTable {
     /// as address[47:16]. Refer to the definition of `RawL3Entry` in `vmsa.rs` for
     /// more details.
     pub fn new() -> KernPageTable {
+	// create new page table with correct permissions - kernel read/write EntryPerm::KERN_RW
+	let (mem_start, mem_end) = allocator::memory_map().unwrap();// map from 0x0 to allocator::memory_map() addr as normal mem with 1:1 mapping
+	// ADDR : [28:16] - 16
+	// 0b0_0000_0000_0000 - 0b1_1111_1111_1110 maps to []
+	
+	// set IO_BASE : IO_BASE_END as device memory / outer shareable
+	
         unimplemented!("KernPageTable::new()")
     }
 }

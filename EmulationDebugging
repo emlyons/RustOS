@@ -37,7 +37,7 @@ OR
 cgdb will run with multiarch automatically if installed.
 
 In GDB:
-   target remote localhost:1234
+   -ex 'target remote localhost:1234'
 
    set breakpoints and run.
 

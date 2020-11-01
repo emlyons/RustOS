@@ -12,7 +12,7 @@ macro_rules! err_or {
         } else {
             Err(e)
         }
-    }};
+    }}
 }
 
 pub fn sleep(span: Duration) -> OsResult<Duration> {
