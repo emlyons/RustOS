@@ -4,6 +4,7 @@ use core::slice::Iter;
 
 use alloc::boxed::Box;
 use alloc::fmt;
+use alloc::vec;
 use core::alloc::{GlobalAlloc, Layout};
 use core::mem::size_of;
 
@@ -176,11 +177,26 @@ impl PageTable {
     /// Returns a base address of the pagetable. The returned `PhysicalAddr` value
     /// will point the start address of the L2PageTable.
     pub fn get_baddr(&self) -> PhysicalAddr {
+	let page_table: &[L3Entry] = &self.l3[0].entries;
+	for e in self.l3[0].entries.iter() {
+
+	}
         self.l2.as_ptr()
     }
 }
 
-// FIXME: Implement `IntoIterator` for `&PageTable`.
+
+impl IntoIterator for &PageTable {
+    type Item = L3Entry;
+    
+    type IntoIter = Chain<vec::IntoIter::<Self::Item>, vec::IntoIter::<Self::Item>>;
+    
+    fn into_iter(self) -> Self::IntoIter {
+	let a = self.l3[0].entries.to_vec().into_iter();
+	let b = self.l3[1].entries.to_vec().into_iter();
+	a.chain(b)
+    }
+}
 
 pub struct KernPageTable(Box<PageTable>);
 
