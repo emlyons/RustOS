@@ -350,3 +350,18 @@ impl Drop for UserPageTable {
 }
 
 // FIXME: Implement `fmt::Debug` as you need.
+impl fmt::Debug for UserPageTable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("User Page Table")
+            .field("base address", &self.get_baddr())
+            .finish()
+    }
+}
+
+impl fmt::Debug for KernPageTable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Kernel Page Table")
+            .field("base address", &self.get_baddr())
+            .finish()
+    }
+}
