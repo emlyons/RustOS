@@ -45,11 +45,11 @@ pub static IRQ: Irq = Irq::uninitialized();
 fn kmain() -> ! {
 
     spin_sleep(Duration::from_secs(1));
-    /*
+    
     // ATAG report
     let atag = atags::Atags::get();
     atag.for_each(|x| kprintln!("{:#?}\n\n", x));
-     */
+    
 
         kprintln!("
    .~~.   .~~.

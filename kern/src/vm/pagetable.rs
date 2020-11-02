@@ -105,15 +105,16 @@ impl PageTable {
 	let mut l2_page_table = L2PageTable::new();
 	let l3_page_table = [L3PageTable::new(), L3PageTable::new()];
 
-	for (index, entry) in l3_page_table.iter().enumerate() {
-	    l2_page_table.entries[index].set_value(entry.as_ptr().as_u64() >> PAGE_ALIGN, RawL2Entry::ADDR);
-	    l2_page_table.entries[index].set_value(1, RawL2Entry::AF);
-	    l2_page_table.entries[index].set_value(EntrySh::ISh, RawL2Entry::SH);
-	    l2_page_table.entries[index].set_value(perm, RawL2Entry::AP);
-	    l2_page_table.entries[index].set_value(1, RawL2Entry::NS);
-	    l2_page_table.entries[index].set_value(EntryAttr::Mem, RawL2Entry::ATTR);
-	    l2_page_table.entries[index].set_value(EntryType::Table, RawL2Entry::TYPE);
-	    l2_page_table.entries[index].set_value(EntryValid::Valid, RawL2Entry::VALID);
+	for (index, l3_entry) in l3_page_table.iter().enumerate() {
+	    let entry = &mut l2_page_table.entries[index];
+	    entry.set_value(l3_entry.as_ptr().as_u64() >> PAGE_ALIGN, RawL2Entry::ADDR);
+	    entry.set_value(1, RawL2Entry::AF); // TODO: make 0 on init. set in kern/user init ???
+	    entry.set_value(EntrySh::ISh, RawL2Entry::SH);
+	    entry.set_value(perm, RawL2Entry::AP);
+	    entry.set_value(1, RawL2Entry::NS);
+	    entry.set_value(EntryAttr::Mem, RawL2Entry::ATTR);
+	    entry.set_value(EntryType::Table, RawL2Entry::TYPE);
+	    entry.set_value(EntryValid::Valid, RawL2Entry::VALID); // TODO: make invalid on init. set in kern/user init ???
 	}
 	
 	Box::<PageTable>::new(PageTable {l2: l2_page_table, l3: l3_page_table})
@@ -129,8 +130,7 @@ impl PageTable {
     /// Panics if extracted L2index exceeds the number of L3PageTable.
     fn locate(va: VirtualAddr) -> (usize, usize) {
 	assert_eq!(va.as_u64() as usize % PAGE_SIZE, 0);
-	
-	let num_l3 = 2;// extract from struct
+	let num_l3 = 2;
 
 	let l3_index = (va.as_u64() >> 16) & 0x1FFF;
 	let l2_index = ((va.as_u64() >> 16) >> 13) & 0x1FFF;
@@ -210,14 +210,44 @@ impl KernPageTable {
     /// as address[47:16]. Refer to the definition of `RawL3Entry` in `vmsa.rs` for
     /// more details.
     pub fn new() -> KernPageTable {
-	// create new page table with correct permissions - kernel read/write EntryPerm::KERN_RW
-	let (mem_start, mem_end) = allocator::memory_map().unwrap();// map from 0x0 to allocator::memory_map() addr as normal mem with 1:1 mapping
-	// ADDR : [28:16] - 16
-	// 0b0_0000_0000_0000 - 0b1_1111_1111_1110 maps to []
+	let mut kpt = PageTable::new(EntryPerm::KERN_RW);
+	let (mem_start, mem_end) = allocator::memory_map().unwrap();
+
+	assert!(kpt.l3.len() * kpt.l3[0].entries.len() <= mem_end);
+	assert!(kpt.l3.len() * kpt.l3[0].entries.len() <= IO_BASE_END);
 	
-	// set IO_BASE : IO_BASE_END as device memory / outer shareable
-	
-        unimplemented!("KernPageTable::new()")
+	// kernel memory is mapped 1:1
+	for i in mem_start..mem_end {
+	    let index_l3 = i / kpt.l3.len();
+	    let index_entry = i % kpt.l3.len();
+	    let entry = &mut kpt.l3[index_l3].entries[index_entry].0;
+	    
+	    entry.set_value(i as u64, RawL2Entry::ADDR);
+	    entry.set_value(1, RawL2Entry::AF);
+	    entry.set_value(EntrySh::ISh, RawL2Entry::SH);
+	    entry.set_value(EntryPerm::KERN_RW, RawL2Entry::AP);
+	    entry.set_value(1, RawL2Entry::NS);
+	    entry.set_value(EntryAttr::Mem, RawL2Entry::ATTR);
+	    entry.set_value(EntryType::Table, RawL2Entry::TYPE);
+	    entry.set_value(EntryValid::Valid, RawL2Entry::VALID);
+	}
+
+	// kernel i/o is mapped 1:1
+	for i in IO_BASE..IO_BASE_END {
+	    let index_l3 = i / kpt.l3.len();
+	    let index_entry = i % kpt.l3.len();
+	    let entry = &mut kpt.l3[index_l3].entries[index_entry].0;
+	    
+	    entry.set_value(i as u64, RawL2Entry::ADDR);
+	    entry.set_value(1, RawL2Entry::AF);
+	    entry.set_value(EntrySh::OSh, RawL2Entry::SH);
+	    entry.set_value(EntryPerm::KERN_RW, RawL2Entry::AP);
+	    entry.set_value(1, RawL2Entry::NS);
+	    entry.set_value(EntryAttr::Dev, RawL2Entry::ATTR);
+	    entry.set_value(EntryType::Table, RawL2Entry::TYPE);
+	    entry.set_value(EntryValid::Valid, RawL2Entry::VALID);
+	}
+	KernPageTable(kpt)
     }
 }
 
