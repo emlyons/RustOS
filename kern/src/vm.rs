@@ -26,7 +26,10 @@ impl VMManager {
     /// The caller should assure that the method is invoked only once during the kernel
     /// initialization.
     pub fn initialize(&self) {
-        unimplemented!();
+	if (*self.0.lock()).is_none() {
+	    (*self.0.lock()).replace(KernPageTable::new());
+	}
+	self.setup();
     }
 
     /// Set up the virtual memory manager.
@@ -38,7 +41,7 @@ impl VMManager {
     /// Panics if the current system does not support 64KB memory translation granule size.
     pub fn setup(&self) {
         let kern_page_table = self.0.lock();
-        let baddr = kern_page_table.as_ref().unwrap().get_baddr().as_u64();
+        let baddr = kern_page_table.as_ref().expect("vm setup").get_baddr().as_u64();
 
         unsafe {
             assert!(ID_AA64MMFR0_EL1.get_value(ID_AA64MMFR0_EL1::TGran64) == 0);
@@ -84,6 +87,6 @@ impl VMManager {
 
     /// Returns the base address of the kernel page table as `PhysicalAddr`.
     pub fn get_baddr(&self) -> PhysicalAddr {
-        unimplemented!();
+	self.0.lock().as_ref().unwrap().get_baddr()
     }
 }

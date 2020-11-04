@@ -16,6 +16,8 @@ use core::cmp;
 use crate::mutex::Mutex;
 use pi::atags::Atags;
 
+use crate::console::{kprint, kprintln, CONSOLE};
+
 /// `LocalAlloc` is an analogous trait to the standard library's `GlobalAlloc`,
 /// but it takes `&mut self` in `alloc()` and `dealloc()`.
 pub trait LocalAlloc {
@@ -75,8 +77,9 @@ extern "C" {
 ///
 /// This function is expected to return `Some` under all normal cirumstances.
 pub fn memory_map() -> Option<(usize, usize)> {
+
     let binary_end = unsafe { (&__text_end as *const u8) as usize };
-    
+
     for atag in Atags::get() {
 	match atag.mem() {
 	    Some(mem) => {

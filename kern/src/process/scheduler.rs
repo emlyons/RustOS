@@ -75,9 +75,12 @@ impl GlobalScheduler {
 
 	// first process
 	let mut process = Process::new().expect("failed to allocate memory for new process");
-	process.context.elr = temp_shell as *mut u8 as u64;
+	self.test_phase_3(&mut process);
+	process.context.elr = USER_IMG_BASE as u64;//temp_shell as *mut u8 as u64;
 	process.context.spsr = 0b1101000000;
 	process.context.sp = process.stack.top().as_u64();
+	process.context.ttbr0 = VMM.get_baddr().as_u64();
+	process.context.ttbr1 = process.vmap.get_baddr().as_u64();
 	process.state = State::Running;
 	self.add(process).expect("failed to add first process to scheduler");
 
@@ -100,7 +103,7 @@ impl GlobalScheduler {
 		 adr lr, _start
 		 mov sp, lr
 	         mov lr, xzr
-                 eret" :: "r"(&*self.0.lock().as_mut().unwrap().processes[0].context) :: "volatile");
+                 eret" :: "r"(&*self.0.lock().as_mut().expect("scheduler start").processes[0].context) :: "volatile");
 	};
 
 	loop {};
@@ -118,18 +121,18 @@ impl GlobalScheduler {
     //
     // * A method to load a extern function to the user process's page table.
     //
-    // pub fn test_phase_3(&self, proc: &mut Process){
-    //     use crate::vm::{VirtualAddr, PagePerm};
-    //
-    //     let mut page = proc.vmap.alloc(
-    //         VirtualAddr::from(USER_IMG_BASE as u64), PagePerm::RWX);
-    //
-    //     let text = unsafe {
-    //         core::slice::from_raw_parts(test_user_process as *const u8, 24)
-    //     };
-    //
-    //     page[0..24].copy_from_slice(text);
-    // }
+    pub fn test_phase_3(&self, proc: &mut Process){
+         use crate::vm::{VirtualAddr, PagePerm};
+    
+         let mut page = proc.vmap.alloc(
+             VirtualAddr::from(USER_IMG_BASE as u64), PagePerm::RWX);
+    
+         let text = unsafe {
+             core::slice::from_raw_parts(test_user_process as *const u8, 24)
+         };
+    
+         page[0..24].copy_from_slice(text);
+    }
 }
 
 #[derive(Debug)]

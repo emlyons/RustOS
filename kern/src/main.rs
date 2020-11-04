@@ -49,7 +49,21 @@ fn kmain() -> ! {
     // ATAG report
     let atag = atags::Atags::get();
     atag.for_each(|x| kprintln!("{:#?}\n\n", x));
-    
+
+    unsafe {
+        ALLOCATOR.initialize();
+	kprintln!("memory allocation initialized");
+        FILESYSTEM.initialize();
+	kprintln!("file system initialized");
+	IRQ.initialize();
+	kprintln!("irq system initialized");
+	VMM.initialize();
+	kprintln!("virtual memory system initialized");
+	SCHEDULER.initialize();
+	kprintln!("scheduler initialized");
+	SCHEDULER.start();
+	kprintln!("scheduler started");
+    }
 
         kprintln!("
    .~~.   .~~.
@@ -65,13 +79,7 @@ fn kmain() -> ! {
 Welcome to rustOS on Raspberry Pi!
 ");
     
-    unsafe {
-        ALLOCATOR.initialize();
-        FILESYSTEM.initialize();
-	IRQ.initialize();
-	SCHEDULER.initialize();
-	SCHEDULER.start();
-    }
+
 
     loop {
 	shell::shell(">");
