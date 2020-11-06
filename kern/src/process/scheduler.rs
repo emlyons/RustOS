@@ -5,6 +5,7 @@ use core::mem::replace;
 
 use aarch64::*;
 
+use crate::vm::{VirtualAddr, PagePerm};
 use crate::mutex::Mutex;
 use crate::param::{PAGE_MASK, PAGE_SIZE, TICK, USER_IMG_BASE};
 use crate::process::{Id, Process, State};
@@ -15,6 +16,8 @@ use crate::temp_shell;
 
 use pi::interrupt::{Interrupt, Controller};
 use pi::timer::{tick_in, current_time};
+
+use crate::console::{kprint, kprintln, CONSOLE};
 
 /// Process scheduler for the entire machine.
 #[derive(Debug)]
@@ -75,38 +78,46 @@ impl GlobalScheduler {
 
 	// first process
 	let mut process = Process::new().expect("failed to allocate memory for new process");
-	self.test_phase_3(&mut process);
-	process.context.elr = USER_IMG_BASE as u64;//temp_shell as *mut u8 as u64;
-	process.context.spsr = 0b1101000000;
-	process.context.sp = process.stack.top().as_u64();
-	process.context.ttbr0 = VMM.get_baddr().as_u64();
-	process.context.ttbr1 = process.vmap.get_baddr().as_u64();
-	process.state = State::Running;
-	self.add(process).expect("failed to add first process to scheduler");
 
+	process.context.sp = process.stack.top().as_u64();
+	process.context.elr = VirtualAddr::from(USER_IMG_BASE).as_u64();
+	process.context.ttbr0 = VMM.get_baddr().as_u64();
+	process.context.ttbr1 = process.vmap.get_baddr().as_u64();	
+	process.context.spsr |= aarch64::SPSR_EL1::F | aarch64::SPSR_EL1::A | aarch64::SPSR_EL1::D;
+	process.state = State::Running;
+
+	self.test_phase_3(&mut process);
+	let tf = (&*process.context) as *const TrapFrame as u64;
+	let old_sp = process.context.sp;
+	
+	self.add(process).expect("failed to add first process to scheduler");
+	
+	/*
 	// second process
-/*	process = Process::new().expect("failed to allocate memory for new process");
+	process = Process::new().expect("failed to allocate memory for new process");
 	process.context.elr = temp_shell as *mut u8 as u64;
 	process.context.spsr = 0b1101000000;
 	process.context.sp = process.stack.top().as_u64();
+	process.context.ttbr0 = VMM.get_baddr().as_u64();
+	process.context.ttbr1 = VMM.get_baddr().as_u64();
 	self.add(process).expect("failed to add first process to scheduler");
-	 */
-
+*/
 	// systick
 	IRQ.register(Interrupt::Timer1, Box::new(systick_handler));
 	Controller::new().enable(Interrupt::Timer1);
 	tick_in(TICK);
-	
+
 	unsafe{
 	    asm!("mov sp, $0
 		 bl context_restore
 		 adr lr, _start
 		 mov sp, lr
 	         mov lr, xzr
-                 eret" :: "r"(&*self.0.lock().as_mut().expect("scheduler start").processes[0].context) :: "volatile");
+                 eret" :: "r"(tf) :: "volatile");
 	};
 
-	loop {};
+        loop {}
+	
     }
 
     /// Initializes the scheduler and add userspace processes to the Scheduler
@@ -122,16 +133,15 @@ impl GlobalScheduler {
     // * A method to load a extern function to the user process's page table.
     //
     pub fn test_phase_3(&self, proc: &mut Process){
-         use crate::vm::{VirtualAddr, PagePerm};
+   
+        let mut page = proc.vmap.alloc(
+            VirtualAddr::from(USER_IMG_BASE as u64), PagePerm::RWX);
     
-         let mut page = proc.vmap.alloc(
-             VirtualAddr::from(USER_IMG_BASE as u64), PagePerm::RWX);
+        let text = unsafe {
+            core::slice::from_raw_parts(test_user_process as *const u8, 24)
+        };
     
-         let text = unsafe {
-             core::slice::from_raw_parts(test_user_process as *const u8, 24)
-         };
-    
-         page[0..24].copy_from_slice(text);
+        page[0..24].copy_from_slice(text);
     }
 }
 
@@ -236,7 +246,7 @@ impl Scheduler {
     }
 }
 
-pub extern "C" fn  test_user_process() -> ! {
+pub extern "C" fn test_user_process() -> ! {
     loop {
         let ms = 10000;
         let error: u64;
@@ -258,6 +268,8 @@ pub extern "C" fn  test_user_process() -> ! {
 // TODO: SYSTICK HANDLER should go where?
 pub fn systick_handler(tf: &mut TrapFrame) {
     use crate::SCHEDULER;
+
+    kprintln!("tick");
 
     // if initialized
     SCHEDULER.switch(State::Ready, tf);

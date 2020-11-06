@@ -47,25 +47,31 @@ fn kmain() -> ! {
     spin_sleep(Duration::from_secs(1));
     
     // ATAG report
-    let atag = atags::Atags::get();
-    atag.for_each(|x| kprintln!("{:#?}\n\n", x));
+    //let atag = atags::Atags::get();
+    //atag.for_each(|x| kprintln!("{:#?}\n\n", x));
 
     unsafe {
-        ALLOCATOR.initialize();
-	kprintln!("memory allocation initialized");
-        FILESYSTEM.initialize();
-	kprintln!("file system initialized");
-	IRQ.initialize();
-	kprintln!("irq system initialized");
-	VMM.initialize();
-	kprintln!("virtual memory system initialized");
-	SCHEDULER.initialize();
-	kprintln!("scheduler initialized");
-	SCHEDULER.start();
-	kprintln!("scheduler started");
-    }
+	kprint!("initializing memory allocator... ");
+	ALLOCATOR.initialize();
+	kprintln!("ready");
 
-        kprintln!("
+	kprint!("initializing file system... ");
+        FILESYSTEM.initialize();
+	kprintln!("ready");
+
+	kprint!("initializing irq handler... ");
+	IRQ.initialize();
+	kprintln!("ready");
+
+	kprint!("initializing virtual memory manager... ");
+	VMM.initialize();
+	kprintln!("ready");
+
+	kprint!("initializing scheduler... ");
+	SCHEDULER.initialize();
+	kprintln!("ready\n\n");
+
+	kprintln!("
    .~~.   .~~.
   '. \\ ' ' / .'
    .~ .~~~..~.
@@ -78,8 +84,9 @@ fn kmain() -> ! {
        '~'
 Welcome to rustOS on Raspberry Pi!
 ");
-    
 
+	SCHEDULER.start();
+    }
 
     loop {
 	shell::shell(">");
