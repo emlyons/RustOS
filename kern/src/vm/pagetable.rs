@@ -227,7 +227,7 @@ impl KernPageTable {
 	    entry.set_value(EntryPerm::KERN_RW, RawL2Entry::AP);
 	    entry.set_value(1, RawL2Entry::NS);
 	    entry.set_value(EntryAttr::Mem, RawL2Entry::ATTR);
-	    entry.set_value(EntryType::Table, RawL2Entry::TYPE);
+	    entry.set_value(PageType::Page, RawL2Entry::TYPE);
 	    entry.set_value(EntryValid::Valid, RawL2Entry::VALID);
 	}
 
@@ -243,7 +243,7 @@ impl KernPageTable {
 	    entry.set_value(EntryPerm::KERN_RW, RawL2Entry::AP);
 	    entry.set_value(1, RawL2Entry::NS);
 	    entry.set_value(EntryAttr::Dev, RawL2Entry::ATTR);
-	    entry.set_value(EntryType::Table, RawL2Entry::TYPE);
+	    entry.set_value(PageType::Page, RawL2Entry::TYPE);
 	    entry.set_value(EntryValid::Valid, RawL2Entry::VALID);
 	}
 	KernPageTable(kpt)
