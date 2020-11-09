@@ -1,5 +1,6 @@
 use alloc::boxed::Box;
 use shim::io;
+use shim::io::{Read, Write};
 use shim::path::Path;
 use core::mem;
 
@@ -10,6 +11,11 @@ use crate::process::{Stack, State};
 use crate::traps::TrapFrame;
 use crate::vm::*;
 use kernel_api::{OsError, OsResult};
+
+use fat32::traits::FileSystem;
+use fat32::traits::{Dir, File, Entry};
+
+use crate ::FILESYSTEM;
 
 /// Type alias for the type of a process ID.
 pub type Id = u64;
@@ -64,6 +70,11 @@ impl Process {
         let mut p = Process::do_load(pn)?;
 
         //FIXME: Set trapframe for the process.
+/*
+	load() method internally call do_load() method. 
+	Then, it should sets the trap frame for the process with the proper virtual addresses in order 
+	to make the process run with user page table. Finally, it returns the process object ready to be run.
+*/
 
         Ok(p)
     }
@@ -72,30 +83,55 @@ impl Process {
     /// Allocates one page for stack with read/write permission, and N pages with read/write/execute
     /// permission to load file's contents.
     fn do_load<P: AsRef<Path>>(pn: P) -> OsResult<Process> {
+/*
+	do_load() method gets a path to the file as a parameter and returns a wrapped Process struct.
+	do_load needs to create a new process struct, allocate the stack in process virtual space,
+	opens a file at the given path and read its content into the process virtual space starting at address USER_IMG_BASE.
+	 */
+	
+	let process = Process::new()?;// create new process struct (NOTE: allocates stack in physical space)
+	// process.stack = get_stack_top()
+	//process.vamp.alloc(//stack addr, EntryPerm::USER_RW);// allocate state in for process struct
+
+	// read file into user virtual space starting and USER_IMG_BASE while allocating as necessary
+	let mut program = FILESYSTEM.open_file(pn)?;// open pn from FILESYSTEM global
+	let mut read_bytes = 0;
+	let mut data = [0u8; PAGE_SIZE]; // create ptr to USER_IMG_BASE
+	while read_bytes < program.size() {
+	    if let Ok(bytes_returned) = program.read(&mut data) {
+		// allocate new page starting at USER_IMG_BASE
+		// copy data to page
+	    	read_bytes += bytes_returned as u64;
+	    }
+	    else {
+		return Err(OsError::IoError);
+	    }
+	}
+	
         unimplemented!();
     }
 
     /// Returns the highest `VirtualAddr` that is supported by this system.
     pub fn get_max_va() -> VirtualAddr {
-        unimplemented!();
+	VirtualAddr::from(core::usize::MAX)
     }
 
     /// Returns the `VirtualAddr` represents the base address of the user
     /// memory space.
     pub fn get_image_base() -> VirtualAddr {
-        unimplemented!();
+	VirtualAddr::from(USER_IMG_BASE)
     }
 
     /// Returns the `VirtualAddr` represents the base address of the user
     /// process's stack.
     pub fn get_stack_base() -> VirtualAddr {
-        unimplemented!();
+	VirtualAddr::from(USER_STACK_BASE)
     }
 
     /// Returns the `VirtualAddr` represents the top of the user process's
-    /// stack.
+    /// stack. 16-byte aligned.
     pub fn get_stack_top() -> VirtualAddr {
-        unimplemented!();
+	VirtualAddr::from(core::usize::MAX & (!0xFu64 as usize))
     }
 
     /// Returns `true` if this process is ready to be scheduled.
