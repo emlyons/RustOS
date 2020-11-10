@@ -5,6 +5,7 @@ use core::mem::replace;
 
 use aarch64::*;
 
+use shim::path::{Path, PathBuf, Component};
 use crate::vm::{VirtualAddr, PagePerm};
 use crate::mutex::Mutex;
 use crate::param::{PAGE_MASK, PAGE_SIZE, TICK, USER_IMG_BASE};
@@ -125,6 +126,8 @@ impl GlobalScheduler {
 	let locked = &mut self.0.lock();
 	if locked.is_none() {
 	    locked.replace(Scheduler::new());
+	    let p = PathBuf::from("sleep.bin");
+	    Process::load(p);
 	}
     }
 

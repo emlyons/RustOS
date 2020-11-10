@@ -3,8 +3,11 @@ use shim::io;
 use shim::io::{Read, Write};
 use shim::path::Path;
 use core::mem;
+use core::ptr::Unique;
+use core::ops::Add;
 
 use aarch64;
+use aarch64::vmsa::*;
 
 use crate::param::*;
 use crate::process::{Stack, State};
@@ -56,7 +59,7 @@ impl Process {
     }
     
     /// Load a program stored in the given path by calling `do_load()` method.
-    /// Set trapframe `context` corresponding to the its page table.
+    /// Set trapframe `context` corresponding to its page table.
     /// `sp` - the address of stack top
     /// `elr` - the address of image base.
     /// `ttbr0` - the base address of kernel page table
@@ -67,48 +70,44 @@ impl Process {
     pub fn load<P: AsRef<Path>>(pn: P) -> OsResult<Process> {
         use crate::VMM;
 
-        let mut p = Process::do_load(pn)?;
+        let mut process = Process::do_load(pn)?;
 
-        //FIXME: Set trapframe for the process.
-/*
-	load() method internally call do_load() method. 
-	Then, it should sets the trap frame for the process with the proper virtual addresses in order 
-	to make the process run with user page table. Finally, it returns the process object ready to be run.
-*/
+	process.context.sp = process.stack.top().as_u64();
+	process.context.elr = VirtualAddr::from(USER_IMG_BASE).as_u64();
+	process.context.ttbr0 = VMM.get_baddr().as_u64();
+	process.context.ttbr1 = process.vmap.get_baddr().as_u64();	
+	process.context.spsr |= aarch64::SPSR_EL1::F | aarch64::SPSR_EL1::A | aarch64::SPSR_EL1::D;
 
-        Ok(p)
+        Ok(process)
     }
 
     /// Creates a process and open a file with given path.
     /// Allocates one page for stack with read/write permission, and N pages with read/write/execute
     /// permission to load file's contents.
     fn do_load<P: AsRef<Path>>(pn: P) -> OsResult<Process> {
-/*
-	do_load() method gets a path to the file as a parameter and returns a wrapped Process struct.
-	do_load needs to create a new process struct, allocate the stack in process virtual space,
-	opens a file at the given path and read its content into the process virtual space starting at address USER_IMG_BASE.
-	 */
-	
-	let process = Process::new()?;// create new process struct (NOTE: allocates stack in physical space)
-	// process.stack = get_stack_top()
-	//process.vamp.alloc(//stack addr, EntryPerm::USER_RW);// allocate state in for process struct
+	// allocate stack and move process SP to top
+	let mut process = Process::new()?;
+	process.vmap.alloc(Process::get_stack_base(), PagePerm::RW);
+	let ptr = Unique::new(Process::get_stack_top().as_mut_ptr() as *mut _).expect("non-null");
+	process.stack = Stack {ptr};
 
-	// read file into user virtual space starting and USER_IMG_BASE while allocating as necessary
 	let mut program = FILESYSTEM.open_file(pn)?;// open pn from FILESYSTEM global
 	let mut read_bytes = 0;
 	let mut data = [0u8; PAGE_SIZE]; // create ptr to USER_IMG_BASE
+	let mut num_pages = 0;
+	
 	while read_bytes < program.size() {
 	    if let Ok(bytes_returned) = program.read(&mut data) {
-		// allocate new page starting at USER_IMG_BASE
-		// copy data to page
+		let vaddr = Process::get_image_base().add(VirtualAddr::from(num_pages * PAGE_SIZE));
+		let page = process.vmap.alloc(vaddr, PagePerm::RWX);
+		page.copy_from_slice(&data);
 	    	read_bytes += bytes_returned as u64;
 	    }
 	    else {
 		return Err(OsError::IoError);
 	    }
 	}
-	
-        unimplemented!();
+        Ok(process)
     }
 
     /// Returns the highest `VirtualAddr` that is supported by this system.
