@@ -76,33 +76,10 @@ impl GlobalScheduler {
     /// Starts executing processes in user space using timer interrupt based
     /// preemptive scheduling. This method should not return under normal conditions.
     pub fn start(&self) -> ! {
+	let mut trap_frame = TrapFrame::default();
+	self.switch_to(&mut trap_frame);
+	let tf = &trap_frame as *const TrapFrame as u64;
 
-	// first process
-	let mut process = Process::new().expect("failed to allocate memory for new process");
-
-	process.context.sp = process.stack.top().as_u64();
-	process.context.elr = VirtualAddr::from(USER_IMG_BASE).as_u64();
-	process.context.ttbr0 = VMM.get_baddr().as_u64();
-	process.context.ttbr1 = process.vmap.get_baddr().as_u64();	
-	process.context.spsr |= aarch64::SPSR_EL1::F | aarch64::SPSR_EL1::A | aarch64::SPSR_EL1::D;
-	process.state = State::Running;
-
-	self.test_phase_3(&mut process);
-	let tf = (&*process.context) as *const TrapFrame as u64;
-	let old_sp = process.context.sp;
-	
-	self.add(process).expect("failed to add first process to scheduler");
-	
-	/*
-	// second process
-	process = Process::new().expect("failed to allocate memory for new process");
-	process.context.elr = temp_shell as *mut u8 as u64;
-	process.context.spsr = 0b1101000000;
-	process.context.sp = process.stack.top().as_u64();
-	process.context.ttbr0 = VMM.get_baddr().as_u64();
-	process.context.ttbr1 = VMM.get_baddr().as_u64();
-	self.add(process).expect("failed to add first process to scheduler");
-*/
 	// systick
 	IRQ.register(Interrupt::Timer1, Box::new(systick_handler));
 	Controller::new().enable(Interrupt::Timer1);
@@ -117,8 +94,7 @@ impl GlobalScheduler {
                  eret" :: "r"(tf) :: "volatile");
 	};
 
-        loop {}
-	
+        loop {}	
     }
 
     /// Initializes the scheduler and add userspace processes to the Scheduler
@@ -126,8 +102,8 @@ impl GlobalScheduler {
 	let locked = &mut self.0.lock();
 	if locked.is_none() {
 	    locked.replace(Scheduler::new());
-	    let p = PathBuf::from("sleep.bin");
-	    Process::load(p);
+	    let process = Process::load(PathBuf::from("/sleep.bin")).expect("failed to load user program");
+	    self.add(process).expect("failed to obtain PID");
 	}
     }
 
@@ -191,10 +167,8 @@ impl Scheduler {
     ///
     /// If the `processes` queue is empty or there is no current process,
     /// returns `false`. Otherwise, returns `true`.
-    fn schedule_out(&mut self, new_state: State, tf: &mut TrapFrame) -> bool {
-	
+    fn schedule_out(&mut self, new_state: State, tf: &mut TrapFrame) -> bool {	
 	for index in 0..self.processes.len(){
-
 	    match self.processes[index].state {
 		State::Running => {
 		    if self.processes[index].context.tpidr == tf.tpidr {
@@ -207,8 +181,7 @@ impl Scheduler {
 		},
 		_ => continue,// TODO: can break after verification
 	    }
-	}
-	
+	}	
 	false
     }
     
@@ -220,7 +193,6 @@ impl Scheduler {
     /// If there is no process to switch to, returns `None`. Otherwise, returns
     /// `Some` of the next process`s process ID.
     fn switch_to(&mut self, tf: &mut TrapFrame) -> Option<Id> {
-
 	for index in 0..self.processes.len(){
 	    if self.processes[index].is_ready() {
 		let mut process = self.processes.remove(index).expect("removing sheduled out process from queue");

@@ -84,26 +84,23 @@ impl Process {
     /// Creates a process and open a file with given path.
     /// Allocates one page for stack with read/write permission, and N pages with read/write/execute
     /// permission to load file's contents.
-    fn do_load<P: AsRef<Path>>(pn: P) -> OsResult<Process> {
-	// allocate stack and move process SP to top
+    fn do_load<P: AsRef<Path>>(pn: P) -> OsResult<Process> {	
 	let mut process = Process::new()?;
 	process.vmap.alloc(Process::get_stack_base(), PagePerm::RW);
-	let ptr = Unique::new(Process::get_stack_top().as_mut_ptr() as *mut _).expect("non-null");
-	process.stack = Stack {ptr};
+	process.stack = Stack {ptr: Unique::new(Process::get_stack_top().as_mut_ptr() as *mut _).expect("non-null")};
 
-	let mut program = FILESYSTEM.open_file(pn)?;// open pn from FILESYSTEM global
+	let mut program = FILESYSTEM.open_file(pn)?;
 	let mut read_bytes = 0;
-	let mut data = [0u8; PAGE_SIZE]; // create ptr to USER_IMG_BASE
+	let mut data = [0u8; PAGE_SIZE];
 	let mut num_pages = 0;
-	
+
 	while read_bytes < program.size() {
 	    if let Ok(bytes_returned) = program.read(&mut data) {
 		let vaddr = Process::get_image_base().add(VirtualAddr::from(num_pages * PAGE_SIZE));
 		let page = process.vmap.alloc(vaddr, PagePerm::RWX);
 		page.copy_from_slice(&data);
 	    	read_bytes += bytes_returned as u64;
-	    }
-	    else {
+	    } else {
 		return Err(OsError::IoError);
 	    }
 	}
