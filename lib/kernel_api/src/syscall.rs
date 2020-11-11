@@ -28,7 +28,7 @@ pub fn sleep(span: Duration) -> OsResult<Duration> {
         asm!("svc $2"
              : "={x0}"(elapsed_ms), "={x7}"(ecode)
              : "i"(NR_SLEEP), "{x0}"(ms)
-             : "memory"
+             : "x0", "x7", "memory"
              : "volatile");
     }
 
@@ -44,7 +44,20 @@ pub fn exit() -> ! {
 }
 
 pub fn write(b: u8) {
-    unimplemented!("write()");
+    let mut ecode: u64 = 0;
+    
+    unsafe {
+        asm!("mov x0, $2
+              svc $1
+              mov $0, x7
+              mov x7, #0
+              mov x0, #0"
+             : "=r"(ecode)
+             : "i"(NR_WRITE), "r"(b)
+             : "x0", "x7"
+	     : "volatile"
+	);
+    }
 }
 
 pub fn getpid() -> u64 {

@@ -53,6 +53,7 @@ pub fn sys_time(tf: &mut TrapFrame) {
 
     tf.x[0] = seconds;
     tf.x[1] = nano_fraction as u64;
+    tf.x[7] = OsError::Ok as u64;
 }
 
 /// Kills current process.
@@ -68,7 +69,8 @@ pub fn sys_exit(tf: &mut TrapFrame) {
 ///
 /// It only returns the usual status value.
 pub fn sys_write(b: u8, tf: &mut TrapFrame) {
-    unimplemented!("sys_write()");
+    CONSOLE.lock().write_byte(b);
+    tf.x[7] = OsError::Ok as u64;
 }
 
 /// Returns current process's ID.
@@ -86,6 +88,10 @@ pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
 	NR_SLEEP => {
 	    let time = tf.x[0];
 	    sys_sleep(time as u32, tf);
+	}
+	NR_WRITE => {
+	    let byte = tf.x[0] as u8;
+	    sys_write(byte, tf);
 	},
 	_ => {
 	    // error code
