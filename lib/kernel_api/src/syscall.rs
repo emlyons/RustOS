@@ -36,7 +36,18 @@ pub fn sleep(span: Duration) -> OsResult<Duration> {
 }
 
 pub fn time() -> Duration {
-    unimplemented!("time()");
+    let mut seconds: u64;
+    let mut nano: u64;
+    let mut ecode: u64;
+    
+    unsafe {
+        asm!("svc $3"
+             : "={x0}"(seconds), "={x1}"(nano), "={x7}"(ecode)
+	     : "i"(NR_TIME)
+             : "x0", "x1", "x7", "memory"
+             : "volatile");
+    }
+    loop {};
 }
 
 pub fn exit() -> ! {
@@ -54,12 +65,11 @@ pub fn write(b: u8) {
     let mut ecode: u64 = 0;
     
     unsafe {
-        asm!("mov x0, $1
-              svc $0
+        asm!("svc $1
               mov x7, #0
               mov x0, #0"
-             :
-             : "i"(NR_WRITE), "r"(b)
+             : "={x7}"(ecode)
+             : "i"(NR_WRITE), "{x0}"(b)
              : "x0", "x7"
 	     : "volatile"
 	);
@@ -68,7 +78,28 @@ pub fn write(b: u8) {
 }
 
 pub fn getpid() -> u64 {
-    unimplemented!("getpid()");
+    let mut pid: u64;
+    let mut ecode: u64;
+    
+    unsafe {
+        asm!("svc $2"
+             : "={x0}"(pid), "={x7}"(ecode)
+	     : "i"(NR_GETPID)
+             : "x0", "x7", "memory"
+             : "volatile");
+    }
+
+    pid
+}
+
+pub fn call_fmt(args: fmt::Arguments) {
+    write_string("It's Working!");
+}
+
+pub fn write_string(s: &str) {
+    for b in s.bytes() {
+        write(b);
+    }
 }
 
 

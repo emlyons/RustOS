@@ -80,7 +80,8 @@ pub fn sys_write(b: u8, tf: &mut TrapFrame) {
 /// In addition to the usual status value, this system call returns a
 /// parameter: the current process's ID.
 pub fn sys_getpid(tf: &mut TrapFrame) {
-    unimplemented!("sys_getpid()");
+    tf.x[0] = tf.tpidr;
+    tf.x[7] = OsError::Ok as u64;
 }
 
 pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
@@ -88,14 +89,25 @@ pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
 	NR_SLEEP => {
 	    let time = tf.x[0];
 	    sys_sleep(time as u32, tf);
-	}
+	},
+	
+	NR_TIME => {
+	    sys_time(tf);
+	},
+	
 	NR_EXIT => {
 	    sys_exit(tf);
 	},
+	
 	NR_WRITE => {
 	    let byte = tf.x[0] as u8;
 	    sys_write(byte, tf);
 	},
+	
+	NR_GETPID => {
+	    sys_getpid(tf);
+	},
+	
 	_ => {
 	    // error code
 	},
