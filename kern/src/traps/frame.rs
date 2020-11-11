@@ -2,7 +2,7 @@ use core::fmt;
 use shim::const_assert_size;
 
 #[repr(C)]
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Default, Copy, Clone)]
 pub struct TrapFrame {
     pub elr: u64,
     pub spsr: u64,
@@ -32,5 +32,19 @@ impl TrapFrame {
 	    lr: 0,
 	    reserved: 0,
 	}
+    }
+}
+
+impl fmt::Debug for TrapFrame {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("TrapFrame")
+            .field("elr", &self.elr)
+	    .field("spsr", &self.spsr)
+	    .field("sp", &self.sp)
+	    .field("tpidr", &self.tpidr)
+	    .field("ttbr0", &self.ttbr0)
+	    .field("ttbr1", &self.ttbr1)
+	    .field("lr", &self.lr)
+            .finish()
     }
 }

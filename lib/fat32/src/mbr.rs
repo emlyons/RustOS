@@ -74,7 +74,6 @@ impl PartitionEntry {
     }
 }
 
-// FIXME: implement Debug for PartitionEntry
 impl fmt::Debug for PartitionEntry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("PartitionEntry")
@@ -103,7 +102,6 @@ pub struct MasterBootRecord {
     signature: [u8; 2],
 }
 
-// FIXME: implemente Debug for MasterBootRecord
 impl fmt::Debug for MasterBootRecord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("MasterBootRecord")

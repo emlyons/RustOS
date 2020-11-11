@@ -28,8 +28,6 @@ pub type Id = u64;
 pub struct Process {
     /// The saved trap frame of a process.
     pub context: Box<TrapFrame>,
-    /// The memory allocation used for the process's stack.
-    pub stack: Stack,
     /// The page table describing the Virtual Memory of the process
     pub vmap: Box<UserPageTable>,
     /// The scheduling state of the process.
@@ -43,16 +41,10 @@ impl Process {
     /// If enough memory could not be allocated to start the process, returns
     /// `None`. Otherwise returns `Some` of the new `Process`.
     pub fn new() -> OsResult<Process> {
-	let sp = match Stack::new() {
-	    Some(ptr) => ptr,
-	    None => {return Err(OsError::NoMemory)},
-	};
-
-	let trap_frame = TrapFrame::new_zeroed();
+	let trap_frame = TrapFrame::default();
 
 	Ok(Process {
 	    context: Box::<TrapFrame>::new(trap_frame),
-	    stack: sp,
 	    vmap: Box::new(UserPageTable::new()),
 	    state: State::Ready,
 	})
@@ -70,10 +62,10 @@ impl Process {
     pub fn load<P: AsRef<Path>>(pn: P) -> OsResult<Process> {
         use crate::VMM;
 
-        let mut process = Process::do_load(pn)?;
+        let mut process = Self::do_load(pn)?;
 
-	process.context.sp = process.stack.top().as_u64();
-	process.context.elr = VirtualAddr::from(USER_IMG_BASE).as_u64();
+	process.context.sp = Self::get_stack_top().as_u64();
+	process.context.elr = Self::get_image_base().as_u64();
 	process.context.ttbr0 = VMM.get_baddr().as_u64();
 	process.context.ttbr1 = process.vmap.get_baddr().as_u64();	
 	process.context.spsr |= aarch64::SPSR_EL1::F | aarch64::SPSR_EL1::A | aarch64::SPSR_EL1::D;
@@ -84,26 +76,39 @@ impl Process {
     /// Creates a process and open a file with given path.
     /// Allocates one page for stack with read/write permission, and N pages with read/write/execute
     /// permission to load file's contents.
-    fn do_load<P: AsRef<Path>>(pn: P) -> OsResult<Process> {	
-	let mut process = Process::new()?;
-	process.vmap.alloc(Process::get_stack_base(), PagePerm::RW);
-	process.stack = Stack {ptr: Unique::new(Process::get_stack_top().as_mut_ptr() as *mut _).expect("non-null")};
+    fn do_load<P: AsRef<Path>>(pn: P) -> OsResult<Process> {
+        use io::Read;
+        use alloc::vec;
+        use core::cmp::min;
+        use crate::FILESYSTEM;
+        use fat32::traits::{Entry, FileSystem};
 
-	let mut program = FILESYSTEM.open_file(pn)?;
-	let mut read_bytes = 0;
-	let mut data = [0u8; PAGE_SIZE];
-	let mut num_pages = 0;
+        let mut process = Process::new()?;
+        process.vmap.alloc(Self::get_stack_base(), PagePerm::RW);
+        
+        let entry = FILESYSTEM.open(pn)?;
+        let mut file = match entry.into_file() {
+            Some(file) => file,
+            None => return Err(OsError::NoEntry),
+        };
+	let file_size = file.size() as usize;
+        let mut pos = 0;
+        let mut buffer = vec![0u8; file_size];
+        loop {
+            match file.read(&mut buffer[pos..])? {
+                0 => break,
+                n => pos += n
+            }
+        }
 
-	while read_bytes < program.size() {
-	    if let Ok(bytes_returned) = program.read(&mut data) {
-		let vaddr = Process::get_image_base().add(VirtualAddr::from(num_pages * PAGE_SIZE));
-		let page = process.vmap.alloc(vaddr, PagePerm::RWX);
-		page.copy_from_slice(&data);
-	    	read_bytes += bytes_returned as u64;
-	    } else {
-		return Err(OsError::IoError);
-	    }
-	}
+        let num_pages = 1 + (file_size / PAGE_SIZE);
+        for i in 0..num_pages {
+            let base = VirtualAddr::from(USER_IMG_BASE + i * PAGE_SIZE);
+            let page = process.vmap.alloc(base, PagePerm::RWX);
+            let num_bytes = min(PAGE_SIZE, file_size - i * PAGE_SIZE);
+            page[0..num_bytes].copy_from_slice(&buffer[0..num_bytes]);
+        }
+        
         Ok(process)
     }
 

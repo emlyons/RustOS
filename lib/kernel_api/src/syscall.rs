@@ -92,6 +92,20 @@ pub fn getpid() -> u64 {
     pid
 }
 
+//DEBUG
+pub fn stack_info() {
+    let mut ecode: u64;
+    
+    unsafe {
+        asm!("svc $1"
+             : "={x7}"(ecode)
+	     : "i"(10)
+             : "x0", "x7", "memory"
+             : "volatile");
+    }
+
+}
+
 pub fn call_fmt(args: fmt::Arguments) {
     write_string("It's Working!");
 }
@@ -103,7 +117,7 @@ pub fn write_string(s: &str) {
 }
 
 
-struct Console;
+pub struct Console;
 
 impl fmt::Write for Console {
     fn write_str(&mut self, s: &str) -> fmt::Result {
