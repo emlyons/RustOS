@@ -86,12 +86,22 @@ impl GlobalScheduler {
 	tick_in(TICK);
 
 	unsafe{
-	    asm!("mov sp, $0
-		 bl context_restore
-		 adr lr, _start
-		 mov sp, lr
-	         mov lr, xzr
-                 eret" :: "r"(tf) :: "volatile");
+            asm!("
+                // Call context_restore w/ SP reset to trap frame
+                mov sp, $0
+                mov $0, xzr
+                bl context_restore
+                " :: "r"(tf) :: "volatile");
+
+            let new_sp = 0x80000; // not ideal to hardcode this, oh well
+
+            asm!("
+                // Move SP to next page w/out clobbering other registers
+                mov sp, $0
+                mov $0, xzr
+                // Switch to EL0
+                eret
+            " :: "r"(new_sp) :: "volatile")
 	};
 
         loop {}	

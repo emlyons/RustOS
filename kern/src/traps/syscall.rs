@@ -60,7 +60,7 @@ pub fn sys_time(tf: &mut TrapFrame) {
 ///
 /// This system call does not take paramer and does not return any value.
 pub fn sys_exit(tf: &mut TrapFrame) {
-    unimplemented!("sys_exit()");
+    SCHEDULER.kill(tf);
 }
 
 /// Write to console.
@@ -89,6 +89,9 @@ pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
 	    let time = tf.x[0];
 	    sys_sleep(time as u32, tf);
 	}
+	NR_EXIT => {
+	    sys_exit(tf);
+	},
 	NR_WRITE => {
 	    let byte = tf.x[0] as u8;
 	    sys_write(byte, tf);

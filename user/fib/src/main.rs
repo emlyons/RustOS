@@ -5,7 +5,7 @@
 mod cr0;
 
 use kernel_api::println;
-use kernel_api::syscall::{getpid, time};
+use kernel_api::syscall::{getpid, time, exit, write};
 
 fn fib(n: u64) -> u64 {
     match n {
@@ -16,9 +16,24 @@ fn fib(n: u64) -> u64 {
 }
 
 fn main() {
-    println!("Started...");
+    //println!("Started...");
+    write(72);
+    write(101);
+    write(108);
+    write(108);
+    write(111);
+    
+    let rtn = fib(1);
+    if rtn != 1 {
+	exit();
+    }
 
-    let rtn = fib(40);
-
-    println!("Ended: Result = {}", rtn);
+    write(72);
+    write(101);
+    write(108);
+    write(108);
+    write(111);
+    
+    //println!("Ended: Result = {}", rtn);
+    loop{};
 }
