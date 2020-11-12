@@ -47,7 +47,8 @@ pub fn time() -> Duration {
              : "x0", "x1", "x7", "memory"
              : "volatile");
     }
-    loop {};
+    
+    Duration::new(seconds, nano as u32)
 }
 
 pub fn exit() -> ! {
@@ -66,11 +67,10 @@ pub fn write(b: u8) {
     
     unsafe {
         asm!("svc $1
-              mov x7, #0
               mov x0, #0"
              : "={x7}"(ecode)
              : "i"(NR_WRITE), "{x0}"(b)
-             : "x0", "x7"
+             : "x0", "x7", "memory"
 	     : "volatile"
 	);
     }
@@ -78,44 +78,20 @@ pub fn write(b: u8) {
 }
 
 pub fn getpid() -> u64 {
-    let mut pid: u64;
+    let mut pid: u64 = 1;
     let mut ecode: u64;
     
     unsafe {
-        asm!("svc $2"
-             : "={x0}"(pid), "={x7}"(ecode)
+        asm!("svc $2
+              mov $0, x1"
+             : "={x1}"(pid), "={x7}"(ecode)
 	     : "i"(NR_GETPID)
-             : "x0", "x7", "memory"
+             : "x1", "x7", "memory"
              : "volatile");
     }
-
+    
     pid
 }
-
-//DEBUG
-pub fn stack_info() {
-    let mut ecode: u64;
-    
-    unsafe {
-        asm!("svc $1"
-             : "={x7}"(ecode)
-	     : "i"(10)
-             : "x0", "x7", "memory"
-             : "volatile");
-    }
-
-}
-
-pub fn call_fmt(args: fmt::Arguments) {
-    write_string("It's Working!");
-}
-
-pub fn write_string(s: &str) {
-    for b in s.bytes() {
-        write(b);
-    }
-}
-
 
 pub struct Console;
 

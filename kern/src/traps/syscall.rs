@@ -71,11 +71,6 @@ pub fn sys_exit(tf: &mut TrapFrame) {
 ///
 /// It only returns the usual status value.
 pub fn sys_write(b: u8, tf: &mut TrapFrame) {
-
-    //kprintln!("\nsys_stack");
-    kprintln!("\nstack pointer: {:X}", tf.sp);
-    //kprintln!("stack top = {:X}\n stack base = {:X}", Process::get_stack_top().as_u64(), Process::get_stack_base().as_u64());
-    
     CONSOLE.lock().write_byte(b);
     tf.x[7] = OsError::Ok as u64;
 }
@@ -87,14 +82,9 @@ pub fn sys_write(b: u8, tf: &mut TrapFrame) {
 /// In addition to the usual status value, this system call returns a
 /// parameter: the current process's ID.
 pub fn sys_getpid(tf: &mut TrapFrame) {
-    tf.x[0] = tf.tpidr;
-    tf.x[7] = OsError::Ok as u64;
-}
-
-pub fn sys_stack(tf: &mut TrapFrame) {
-    kprintln!("\nsys_stack");
-    kprintln!("{:X?}", tf);
-    kprintln!("stack top = {:X}\n stack base = {:X}", Process::get_stack_top().as_u64(), Process::get_stack_base().as_u64());
+    let pid: u64 = tf.tpidr;
+    kprintln!("pid: {}", pid);
+    tf.x[1] = pid;
     tf.x[7] = OsError::Ok as u64;
 }
 
@@ -121,9 +111,6 @@ pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
 	NR_GETPID => {
 	    sys_getpid(tf);
 	},
-	10 => {
-	    sys_stack(tf);
-	}
 	_ => {
 	    // error code
 	},

@@ -77,40 +77,28 @@ impl Process {
     /// Allocates one page for stack with read/write permission, and N pages with read/write/execute
     /// permission to load file's contents.
     fn do_load<P: AsRef<Path>>(pn: P) -> OsResult<Process> {
-        use io::Read;
-        use alloc::vec;
-        use core::cmp::min;
-        use crate::FILESYSTEM;
-        use fat32::traits::{Entry, FileSystem};
+	// allocate stack memory
+	let mut process = Process::new()?;
+	process.vmap.alloc(Process::get_stack_base(), PagePerm::RW);
 
-        let mut process = Process::new()?;
-        process.vmap.alloc(Self::get_stack_base(), PagePerm::RW);
-        
-        let entry = FILESYSTEM.open(pn)?;
-        let mut file = match entry.into_file() {
-            Some(file) => file,
-            None => return Err(OsError::NoEntry),
-        };
-	let file_size = file.size() as usize;
-        let mut pos = 0;
-        let mut buffer = vec![0u8; file_size];
-        loop {
-            match file.read(&mut buffer[pos..])? {
-                0 => break,
-                n => pos += n
-            }
-        }
-
-        let num_pages = 1 + (file_size / PAGE_SIZE);
-        for i in 0..num_pages {
-            let base = VirtualAddr::from(USER_IMG_BASE + i * PAGE_SIZE);
-            let page = process.vmap.alloc(base, PagePerm::RWX);
-            let num_bytes = min(PAGE_SIZE, file_size - i * PAGE_SIZE);
-            page[0..num_bytes].copy_from_slice(&buffer[0..num_bytes]);
-        }
-        
+	// allocate code memory and read in program
+	let mut program = FILESYSTEM.open_file(pn)?;
+	let mut read_bytes = 0;
+	let mut num_pages = 0;
+	while read_bytes < program.size() {
+	    let mut data = [0u8; PAGE_SIZE];
+	    if let Ok(bytes_returned) = program.read(&mut data) {
+		let vaddr = Process::get_image_base().add(VirtualAddr::from(num_pages * PAGE_SIZE));
+		let page = process.vmap.alloc(vaddr, PagePerm::RWX);
+		page.copy_from_slice(&data);
+	    	read_bytes += bytes_returned as u64;
+	    } else {
+		return Err(OsError::IoError);
+	    }
+	}
         Ok(process)
     }
+
 
     /// Returns the highest `VirtualAddr` that is supported by this system.
     pub fn get_max_va() -> VirtualAddr {

@@ -180,17 +180,6 @@ impl<HANDLE: VFatHandle> Dir<HANDLE> {
 	    long_name: String::new(),
 	})
     }
-
-    // DEBUG
-    fn get_iter(&self) -> DirIterator<HANDLE> {
-	use traits::{Dir, Entry};
-	self.entries().expect("iterator failed")
-    }
-
-    // DEBUG
-    fn get_next(&self, iter: &mut DirIterator<HANDLE>) -> Option<Entry<HANDLE>> {
-	iter.next()
-    }
 }
 
 pub struct DirIterator<HANDLE: VFatHandle> {

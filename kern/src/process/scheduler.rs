@@ -18,8 +18,6 @@ use crate::temp_shell;
 use pi::interrupt::{Interrupt, Controller};
 use pi::timer::{tick_in, current_time};
 
-use crate::console::{kprint, kprintln, CONSOLE};
-
 /// Process scheduler for the entire machine.
 #[derive(Debug)]
 pub struct GlobalScheduler(Mutex<Option<Scheduler>>);
@@ -115,22 +113,6 @@ impl GlobalScheduler {
 	    let process = Process::load(PathBuf::from("/fib")).expect("failed to load user program");
 	    self.add(process).expect("failed to obtain PID");
 	}
-    }
-
-    // The following method may be useful for testing Phase 3:
-    //
-    // * A method to load a extern function to the user process's page table.
-    //
-    pub fn test_phase_3(&self, proc: &mut Process){
-   
-        let mut page = proc.vmap.alloc(
-            VirtualAddr::from(USER_IMG_BASE as u64), PagePerm::RWX);
-    
-        let text = unsafe {
-            core::slice::from_raw_parts(test_user_process as *const u8, 24)
-        };
-    
-        page[0..24].copy_from_slice(text);
     }
 }
 
@@ -231,30 +213,9 @@ impl Scheduler {
     }
 }
 
-pub extern "C" fn test_user_process() -> ! {
-    loop {
-        let ms = 10000;
-        let error: u64;
-        let elapsed_ms: u64;
-
-        unsafe {
-            asm!("mov x0, $2
-              svc 1
-              mov $0, x0
-              mov $1, x7"
-                 : "=r"(elapsed_ms), "=r"(error)
-                 : "r"(ms)
-                 : "x0", "x7"
-                 : "volatile");
-        }
-    }
-}
-
 // TODO: SYSTICK HANDLER should go where?
 pub fn systick_handler(tf: &mut TrapFrame) {
     use crate::SCHEDULER;
-
-    kprintln!("tick");
 
     // if initialized
     SCHEDULER.switch(State::Ready, tf);
