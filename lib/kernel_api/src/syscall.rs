@@ -98,6 +98,9 @@ pub struct Console;
 impl fmt::Write for Console {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for b in s.bytes() {
+	    if b == 0x00 {
+		break;
+	    }
             write(b);
         }
         Ok(())
@@ -111,10 +114,10 @@ macro_rules! print {
 
 #[macro_export]
 macro_rules! println {
- () => (print!("\n"));
+ () => (print!("\r\n"));
     ($($arg:tt)*) => ({
         $crate::syscall::vprint(format_args!($($arg)*));
-        $crate::print!("\n");
+        $crate::print!("\r\n");
     })
 }
 

@@ -110,7 +110,7 @@ impl GlobalScheduler {
 	let locked = &mut self.0.lock();
 	if locked.is_none() {
 	    locked.replace(Scheduler::new());
-	    let process = Process::load(PathBuf::from("/fib")).expect("failed to load user program");
+	    let process = Process::load(PathBuf::from("/fib.bin")).expect("failed to load user program");
 	    self.add(process).expect("failed to obtain PID");
 	}
     }
