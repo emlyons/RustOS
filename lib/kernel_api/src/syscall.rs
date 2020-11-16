@@ -77,7 +77,7 @@ pub fn write(b: u8) {
 }
 
 pub fn write_str(msg: &str) {
-    for b in s.bytes() {
+    for b in msg.bytes() {
 	if b == 0x00 {
 	    break;
 	}

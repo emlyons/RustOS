@@ -34,8 +34,8 @@ impl VMManager {
     /// The caller should assure that the method is invoked only once during the kernel
     /// initialization.
     pub unsafe fn initialize(&self) {
-	if (*self.0.lock()).is_none() {
-	    (*self.0.lock()).replace(KernPageTable::new());
+	if (*self.kern_pt.lock()).is_none() {
+	    (*self.kern_pt.lock()).replace(KernPageTable::new());
 	}
 	self.setup();
     }
@@ -115,6 +115,6 @@ impl VMManager {
 
     /// Returns the base address of the kernel page table as `PhysicalAddr`.
     pub fn get_baddr(&self) -> PhysicalAddr {
-	self.0.lock().as_ref().unwrap().get_baddr()
+	self.kern_pt.lock().as_ref().unwrap().get_baddr()
     }
 }

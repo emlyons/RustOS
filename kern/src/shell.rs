@@ -9,7 +9,7 @@ use pi::interrupt::{Controller, Interrupt};
 use fat32::traits::FileSystem;
 use fat32::traits::{Dir, File, Entry};
 
-use kernel_api::syscall;
+use kernel_api::*;
 
 use crate::console::{kprint, kprintln, CONSOLE};
 use crate::ALLOCATOR;

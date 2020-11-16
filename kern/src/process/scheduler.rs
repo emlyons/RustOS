@@ -79,10 +79,10 @@ impl GlobalScheduler {
                     affinity(),
                     id,
                     tf.elr,
-                    tf.xs[30],
-                    tf.xs[29],
-                    tf.xs[28],
-                    tf.xs[27]
+                    tf.x[30],
+                    tf.x[29],
+                    tf.x[28],
+                    tf.x[27]
                 );
                 return id;
             }

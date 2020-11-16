@@ -36,7 +36,7 @@ pub struct Process {
     pub state: State,
     // Lab 5 2.C
     /// Socket handles held by the current process
-    // pub sockets: Vec<SocketHandle>,
+    pub sockets: Vec<SocketHandle>,
 }
 
 impl Process {
@@ -52,6 +52,7 @@ impl Process {
 	    context: Box::<TrapFrame>::new(trap_frame),
 	    vmap: Box::new(UserPageTable::new()),
 	    state: State::Ready,
+	    sockets: Vec::new(),
 	})
     }
     
