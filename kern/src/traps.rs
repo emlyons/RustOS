@@ -6,12 +6,15 @@ pub mod irq;
 pub use self::frame::TrapFrame;
 
 use pi::interrupt::{Controller, Interrupt};
+use pi::local_interrupt::{LocalController, LocalInterrupt};
 
 use crate::IRQ;
 use crate::shell::shell;
 
 use self::syndrome::Syndrome;
 use self::syscall::handle_syscall;
+use crate::percore;
+use crate::traps::irq::IrqHandlerRegistry;
 
 #[repr(u16)]
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -67,7 +70,6 @@ fn handle_irq(info: Info, esr: u32, tf: &mut TrapFrame) {
 /// the trap frame for the exception.
 #[no_mangle]
 pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
-
     let elr = unsafe {aarch64::ELR_EL1.get() as u64};
     assert_eq!(tf.elr, elr);
     
@@ -81,4 +83,5 @@ pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
 	Kind::Fiq => {},
 	Kind::SError => {}, 
     };
+
 }

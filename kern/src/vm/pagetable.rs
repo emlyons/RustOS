@@ -98,7 +98,7 @@ impl L3PageTable {
 #[repr(align(65536))]
 pub struct PageTable {
     pub l2: L2PageTable,
-    pub l3: [Box<L3PageTable>; 2],
+    pub l3: [Box<L3PageTable>; 3],
 }
 
 impl PageTable {
@@ -108,7 +108,7 @@ impl PageTable {
 
 	let mut table = Box::new(PageTable {
             l2: L2PageTable::new(),
-            l3: [Box::new(L3PageTable::new()), Box::new(L3PageTable::new())],
+            l3: [Box::new(L3PageTable::new()), Box::new(L3PageTable::new()), Box::new(L3PageTable::new())],
         });
 
 	for (index, l3) in table.l3.iter().enumerate() {
@@ -126,8 +126,7 @@ impl PageTable {
     }
 
     /// Returns the (L2index, L3index) extracted from the given virtual address.
-    /// Since we are only supporting 1GB virtual memory in this system, L2index
-    /// should be smaller than 2.
+    /// L2index should be smaller than the number of L3PageTable.
     ///
     /// # Panics
     ///

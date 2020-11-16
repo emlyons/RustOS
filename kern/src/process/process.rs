@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use shim::io;
 use shim::io::{Read, Write};
 use shim::path::Path;
@@ -8,6 +9,7 @@ use core::ops::Add;
 
 use aarch64;
 use aarch64::vmsa::*;
+use smoltcp::socket::SocketHandle;
 
 use crate::param::*;
 use crate::process::{Stack, State};
@@ -32,6 +34,9 @@ pub struct Process {
     pub vmap: Box<UserPageTable>,
     /// The scheduling state of the process.
     pub state: State,
+    // Lab 5 2.C
+    /// Socket handles held by the current process
+    // pub sockets: Vec<SocketHandle>,
 }
 
 impl Process {

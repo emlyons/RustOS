@@ -1,4 +1,3 @@
-
 # rust-os-cs140e
 ## An Experimental Course on Operating Systems
 
@@ -16,22 +15,24 @@ Assignments from the [CS140 course](https://cs140e.sergio.bz/).
 │    ├── 1-blinky
 │    ├── 2-shell
 │    ├── 3-fs
-│    └── 4-spawn : questions for lab4 *
+│    ├── 4-spawn
+│    └── 5-multicore : questions for lab5 *
 ├── boot : bootloader
 ├── kern : the main os kernel *
 ├── lib  : required libraries
 │     ├── aarch *
 │     ├── kernel_api *
 │     ├── fat32
-│     ├── pi
+│     ├── pi *
 │     ├── shim
 │     ├── stack-vec
 │     ├── ttywrite
 │     ├── volatile
 │     └── xmodem
-└── user  : user level program *
-      ├── fib *
-      └── sleep *
+└── user : user level program *
+      ├── fib
+      ├── sleep
+      └── socket *
 ```
 
 ### Rust Versioning
@@ -153,40 +154,29 @@ Phase 0 - 4 from [Assignment 2: Spawn](https://cs140e.sergio.bz/assignments/3-sp
 
 ### Phase 3: Memory Management Unit
 - [x] Subphase A: Virtual Memory
-- [ ] Subphase B: Page Table
+- [x] Subphase B: Page Table
 
 ### Phase 4: Programs In The Disk
-- [ ] Subphase A: Load A Program
-- [ ] Subphase B: User Processes
+- [x] Subphase A: Load A Program
+- [x] Subphase B: User Processes
 
-=======
-# CS3210 Lab assignments
 
-This repository contains lab assignments for Georgia Tech CS3210 "Design of Operating Systems".
-The latest course material is available [here](https://tc.gts3.org/cs3210/2020/spring/index.html).
+## Multicore and Networking
+Phase 0 - 3 from [Assignment 2: Spawn]https://tc.gts3.org/cs3210/2020/spring/lab/lab5.html).
 
-## Who should take CS3210?
+### Phase 0: Getting Started
+- [ ] Getting the Skeleton Code
 
-- Anyone wants to work on challenges in operating systems
-- Anyone cares about what's going on under the hood
-- Anyone has to build high-performance systems (e.g., Cloud, Trading)
-- Anyone wants to build embedded/IoT firmware (e.g., Robot)
-- Anyone needs to diagnose bugs or security problems
+### Phase 1: Enabling Multicore
+- [ ] Subphase A: Waking Up Other Cores
+- [ ] Subphase B: Mutex, Revisited
+- [ ] Subphase C: Multicore Scheduling
 
-## Why Rust?
+### Phase 2: TCP Networking
+- [ ] Subphase A: Networking 101
+- [ ] Subphase B: Network Driver
+- [ ] Subphase C: Process Resource Management
+- [ ] Subphase D: Socket System Calls
 
-Historically, C has been mainly used for OS development because of its portability,
-minimal runtime, direct hardware/memory access, and (decent) usability.
-Rust provides all of these features with addition of memory safety guarantee,
-strong type system, and modern language abstractions
-which help programmers to make less mistakes when writing code.
-
-## Acknowledgement
-
-We built our labs based on the materials originally developed for
-[CS140e: An Experimental Course on Operating Systems](https://cs140e.sergio.bz/)
-by [Sergio Benitez](https://sergio.bz/).
-We have ported it to use newer toolchains such as Rust 2018 edition,
-`cargo-xbuild` (instead of `xargo`), and `no_std` Rust with a minimal shim library
-(instead of custom built std).
-We’ve also developed it further to include topics such as virtual memory management, multicore scheduling, mutex designing, and implementing a networking stack.
+### Phase 3: Echo Server
+- [ ] Implementation 

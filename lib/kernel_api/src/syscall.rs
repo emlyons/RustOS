@@ -74,7 +74,15 @@ pub fn write(b: u8) {
 	     : "volatile"
 	);
     }
+}
 
+pub fn write_str(msg: &str) {
+    for b in s.bytes() {
+	if b == 0x00 {
+	    break;
+	}
+        write(b);
+    }
 }
 
 pub fn getpid() -> u64 {
@@ -93,16 +101,41 @@ pub fn getpid() -> u64 {
     pid
 }
 
+pub fn sock_create() -> SocketDescriptor {
+    // Lab 5 2.D
+    unimplemented!("sock_create")
+}
+
+pub fn sock_status(descriptor: SocketDescriptor) -> OsResult<SocketStatus> {
+    // Lab 5 2.D
+    unimplemented!("sock_status")
+}
+
+pub fn sock_connect(descriptor: SocketDescriptor, addr: IpAddr) -> OsResult<()> {
+    // Lab 5 2.D
+    unimplemented!("sock_connect")
+}
+
+pub fn sock_listen(descriptor: SocketDescriptor, local_port: u16) -> OsResult<()> {
+    // Lab 5 2.D
+    unimplemented!("sock_listen")
+}
+
+pub fn sock_send(descriptor: SocketDescriptor, buf: &[u8]) -> OsResult<usize> {
+    // Lab 5 2.D
+    unimplemented!("sock_send")
+}
+
+pub fn sock_recv(descriptor: SocketDescriptor, buf: &mut [u8]) -> OsResult<usize> {
+    // Lab 5 2.D
+    unimplemented!("sock_recv")
+}
+
 pub struct Console;
 
 impl fmt::Write for Console {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        for b in s.bytes() {
-	    if b == 0x00 {
-		break;
-	    }
-            write(b);
-        }
+        write_str(s);
         Ok(())
     }
 }
