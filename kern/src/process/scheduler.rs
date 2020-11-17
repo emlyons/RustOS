@@ -23,7 +23,7 @@ use crate::traps::irq::IrqHandlerRegistry;
 use crate::traps::TrapFrame;
 
 use crate::VMM;
-use crate::IRQ;
+use crate::GLOBAL_IRQ;
 use crate::temp_shell;
 
 use pi::interrupt::{Interrupt, Controller};
@@ -79,7 +79,7 @@ impl GlobalScheduler {
                     affinity(),
                     id,
                     tf.elr,
-                    tf.x[30],
+                    tf.lr,
                     tf.x[29],
                     tf.x[28],
                     tf.x[27]
@@ -105,10 +105,7 @@ impl GlobalScheduler {
 	self.switch_to(&mut trap_frame);
 	let tf = &trap_frame as *const TrapFrame as u64;
 
-	// systick
-	IRQ.register(Interrupt::Timer1, Box::new(systick_handler));
-	Controller::new().enable(Interrupt::Timer1);
-	tick_in(TICK);
+	self.initialize_global_timer_interrupt();
 
 	unsafe{
             asm!("
@@ -141,7 +138,9 @@ impl GlobalScheduler {
     /// Registers a timer handler with `Usb::start_kernel_timer` which will
     /// invoke `poll_ethernet` after 1 second.
     pub fn initialize_global_timer_interrupt(&self) {
-        unimplemented!("initialize_global_timer_interrupt()")
+	GLOBAL_IRQ.register(Interrupt::Timer1, Box::new(systick_handler));
+	Controller::new().enable(Interrupt::Timer1);
+	tick_in(TICK);
     }
 
     /// Initializes the per-core local timer interrupt with `pi::local_interrupt`.

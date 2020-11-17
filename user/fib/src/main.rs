@@ -21,8 +21,7 @@ fn main() {
     let beg = time();
     println!("[{:02}] Started: {:?}", pid, beg);
     
-    let pid = getpid();
-    println!("pid: {}", pid);
+    let rtn = fib(40);
     
     let end = time();
     println!("[{:02}] Ended: {:?}", pid, end);

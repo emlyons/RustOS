@@ -47,7 +47,7 @@ pub static FILESYSTEM: FileSystem = FileSystem::uninitialized();
 pub static SCHEDULER: GlobalScheduler = GlobalScheduler::uninitialized();
 pub static VMM: VMManager = VMManager::uninitialized();
 pub static USB: Usb = Usb::uninitialized();
-pub static GLOABAL_IRQ: GlobalIrq = GlobalIrq::new();
+pub static GLOBAL_IRQ: GlobalIrq = GlobalIrq::new();
 pub static FIQ: Fiq = Fiq::new();
 pub static ETHERNET: GlobalEthernetDriver = GlobalEthernetDriver::uninitialized();
 
@@ -85,12 +85,13 @@ unsafe fn kmain() -> ! {
         FILESYSTEM.initialize();
 	kprintln!("ready");
 
-	kprint!("initializing irq handler... ");
-	IRQ.initialize();
-	kprintln!("ready");
+	//kprint!("initializing irq handler... ");
+	//GLOBAL_IRQ.initialize();
+	//kprintln!("ready");
 
 	kprint!("initializing virtual memory manager... ");
 	VMM.initialize();
+	VMM.setup();
 	kprintln!("ready");
 
 	kprint!("initializing scheduler... ");

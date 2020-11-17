@@ -8,7 +8,7 @@ pub use self::frame::TrapFrame;
 use pi::interrupt::{Controller, Interrupt};
 use pi::local_interrupt::{LocalController, LocalInterrupt};
 
-use crate::IRQ;
+use crate::GLOBAL_IRQ;
 use crate::shell::shell;
 
 use self::syndrome::Syndrome;
@@ -56,10 +56,10 @@ fn handle_synchronous(info: Info, esr: u32, tf: &mut TrapFrame) {
 }
 
 fn handle_irq(info: Info, esr: u32, tf: &mut TrapFrame) {
-    let int_ctrl = Controller::new();
+    let controller = Controller::new();
     for int in Interrupt::iter() {
-	if int_ctrl.is_pending(*int) {
-	    IRQ.invoke(*int, tf);
+	if controller.is_pending(int) {
+	    GLOBAL_IRQ.invoke(int, tf);
 	}
     }
 }

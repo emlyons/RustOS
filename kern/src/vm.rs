@@ -11,6 +11,8 @@ use crate::mutex::Mutex;
 use crate::param::{KERNEL_MASK_BITS, USER_MASK_BITS};
 use crate::percore::{is_mmu_ready, set_mmu_ready};
 
+use crate::console::{kprint, kprintln, CONSOLE};
+
 pub struct VMManager {
     kern_pt: Mutex<Option<KernPageTable>>,
     kern_pt_addr: AtomicUsize,
@@ -36,8 +38,10 @@ impl VMManager {
     pub unsafe fn initialize(&self) {
 	if (*self.kern_pt.lock()).is_none() {
 	    (*self.kern_pt.lock()).replace(KernPageTable::new());
+	    
+	    let baddr = self.kern_pt.lock().as_ref().expect("vm setup").get_baddr().as_usize();
+	    self.kern_pt_addr.store(baddr, Ordering::Relaxed);
 	}
-	self.setup();
     }
 
     /// Set up the virtual memory manager for the current core.
@@ -47,16 +51,12 @@ impl VMManager {
     /// # Panics
     ///
     /// Panics if the current system does not support 64KB memory translation granule size.
-/*
-    pub fn setup(&self) {
-        let kern_page_table = self.0.lock();
-        let baddr = kern_page_table.as_ref().expect("vm setup").get_baddr().as_u64();
-*/
     pub unsafe fn setup(&self) {
+
         assert!(ID_AA64MMFR0_EL1.get_value(ID_AA64MMFR0_EL1::TGran64) == 0);
 
         let ips = ID_AA64MMFR0_EL1.get_value(ID_AA64MMFR0_EL1::PARange);
-
+	
         // (ref. D7.2.70: Memory Attribute Indirection Register)
         MAIR_EL1.set(
             (0xFF <<  0) |// AttrIdx=0: normal, IWBWA, OWBWA, NTR
@@ -81,20 +81,21 @@ impl VMManager {
             (0b0  <<  7) | // EPD0 enables lower half
             ((KERNEL_MASK_BITS as u64) << 0), // T0SZ=31 (8GB)
         );
+	
         isb();
 
         let baddr = self.kern_pt_addr.load(Ordering::Relaxed);
-
+	
         TTBR0_EL1.set(baddr as u64);
         TTBR1_EL1.set(baddr as u64);
-
+	
         asm!("dsb ish");
         isb();
 
         SCTLR_EL1.set(SCTLR_EL1.get() | SCTLR_EL1::I | SCTLR_EL1::C | SCTLR_EL1::M);
         asm!("dsb sy");
         isb();
-
+	
         set_mmu_ready();
     }
 

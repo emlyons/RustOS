@@ -26,6 +26,35 @@ impl Interrupt {
             .iter()
             .map(|int| *int)
     }
+
+    pub fn to_index(i: Interrupt) -> usize {
+        use Interrupt::*;
+        match i {
+            Timer1 => 0,
+            Timer3 => 1,
+            Usb => 2,
+            Gpio0 => 3,
+            Gpio1 => 4,
+            Gpio2 => 5,
+            Gpio3 => 6,
+            Uart => 7,
+        }
+    }
+
+    pub fn from_index(i: usize) -> Interrupt {
+        use Interrupt::*;
+        match i {
+            0 => Timer1,
+            1 => Timer3,
+            2 => Usb,
+            3 => Gpio0,
+            4 => Gpio1,
+            5 => Gpio2,
+            6 => Gpio3,
+            7 => Uart,
+            _ => panic!("Unknown interrupt: {}", i),
+        }
+    }
 }
 
 impl From<usize> for Interrupt {
