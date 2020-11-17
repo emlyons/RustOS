@@ -133,7 +133,7 @@ Phase 0 - 4 from [Assignment 2: File System](https://cs140e.sergio.bz/assignment
 
 
 ## Preemptive Multitasking
-Phase 0 - 4 from [Assignment 2: Spawn](https://cs140e.sergio.bz/assignments/3-spawn/).
+Phase 0 - 4 from [Assignment 3: Spawn](https://cs140e.sergio.bz/assignments/3-spawn/).
 
 ### Phase 0: Getting Started
 - [x] Getting the Skeleton Code
@@ -162,10 +162,10 @@ Phase 0 - 4 from [Assignment 2: Spawn](https://cs140e.sergio.bz/assignments/3-sp
 
 
 ## Multicore and Networking
-Phase 0 - 3 from [Assignment 2: Spawn]https://tc.gts3.org/cs3210/2020/spring/lab/lab5.html).
+Phase 0 - 3 from https://tc.gts3.org/cs3210/2020/spring/lab/lab5.html).
 
 ### Phase 0: Getting Started
-- [ ] Getting the Skeleton Code
+- [x] Getting the Skeleton Code
 
 ### Phase 1: Enabling Multicore
 - [ ] Subphase A: Waking Up Other Cores
