@@ -45,7 +45,7 @@ check:
 qemu: build
 	./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd $(QEMU_ARGS)
 
-qemu-gdb: build
+qemu-gdb: debug
 	./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd -s
 
 qemu-asm: build

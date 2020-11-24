@@ -156,7 +156,7 @@ impl GlobalScheduler {
 	let locked = &mut self.0.lock();
 	if locked.is_none() {
 	    locked.replace(Scheduler::new());
-	    let process = Process::load(PathBuf::from("/fib.bin")).expect("failed to load user program");
+	    let process = Process::load(PathBuf::from("/user/fib.bin")).expect("failed to load user program");
 	    self.add(process).expect("failed to obtain PID");
 	}
     }
@@ -335,9 +335,9 @@ pub extern "C" fn  test_user_process() -> ! {
 
         unsafe {
             asm!("mov x0, $2
-              svc 1
-              mov $0, x0
-              mov $1, x7"
+                  svc 1
+                  mov $0, x0
+                  mov $1, x7"
                  : "=r"(elapsed_ms), "=r"(error)
                  : "r"(ms)
                  : "x0", "x7"

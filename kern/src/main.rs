@@ -91,12 +91,14 @@ unsafe fn kmain() -> ! {
 
 	kprint!("initializing virtual memory manager... ");
 	VMM.initialize();
-	VMM.setup();
 	kprintln!("ready");
 
 	kprint!("initializing scheduler... ");
 	SCHEDULER.initialize();
 	kprintln!("ready\n\n");
+
+	init::initialize_app_cores();
+	VMM.setup();
 
 	kprintln!("
    .~~.   .~~.

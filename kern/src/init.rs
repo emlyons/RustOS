@@ -12,6 +12,9 @@ use crate::VMM;
 
 use crate::console::{kprint, kprintln, CONSOLE};
 
+
+use core::time::Duration;
+
 global_asm!(include_str!("init/vectors.s"));
 
 //
@@ -54,8 +57,7 @@ unsafe fn switch_to_el2() {
         SCR_EL3.set(SCR_EL3::NS | SCR_EL3::SMD | SCR_EL3::HCE | SCR_EL3::RW | SCR_EL3::RES1);
 
         // set up Saved Program Status Register (C5.2.19)
-        SPSR_EL3
-            .set((SPSR_EL3::M & 0b1001) | SPSR_EL3::F | SPSR_EL3::I | SPSR_EL3::A | SPSR_EL3::D);
+        SPSR_EL3.set((SPSR_EL3::M & 0b1001) | SPSR_EL3::F | SPSR_EL3::I | SPSR_EL3::A | SPSR_EL3::D);
 
         // eret to itself, expecting current_el() == 2 this time.
         ELR_EL3.set(switch_to_el2 as u64);
@@ -118,7 +120,12 @@ unsafe fn kinit() -> ! {
 #[no_mangle]
 pub unsafe extern "C" fn start2() -> ! {
     // Lab 5 1.A
-    unimplemented!("start2")
+    kprintln!("start2()");
+    let core_idx = MPIDR_EL1.get_value(MPIDR_EL1::Aff0) as usize;
+    assert!(core_idx < 4 && core_idx > 0);
+    SP.set(KERN_STACK_BASE - KERN_STACK_SIZE * core_idx);
+    kinit2();
+    unreachable!()
 }
 
 unsafe fn kinit2() -> ! {
@@ -129,12 +136,51 @@ unsafe fn kinit2() -> ! {
 
 unsafe fn kmain2() -> ! {
     // Lab 5 1.A
-    unimplemented!("kmain2")
+    let core_idx = MPIDR_EL1.get_value(MPIDR_EL1::Aff0) as usize;
+    kprintln!("hello from core {}", core_idx);
+    loop {
+
+    };
 }
 
 /// Wakes up each app core by writing the address of `init::start2`
 /// to their spinning base and send event with `sev()`.
 pub unsafe fn initialize_app_cores() {
     // Lab 5 1.A
-    unimplemented!("initialize_app_cores")
+
+    kprintln!("initialize_app_cores()");
+    
+    let start_addr = start2 as *const () as usize;
+
+    for core_idx in 1..4 {
+	let spin_cpu = (SPINNING_BASE as usize + 8 * core_idx) as *mut usize;
+	*spin_cpu = start_addr;
+	kprintln!("core[{}] = {}", core_idx, start_addr);
+    }
+
+    asm::sev();
+    
+    for core_idx in 1..4 {
+	let spin_cpu = (SPINNING_BASE as usize + 8 * core_idx) as usize;
+	wait_cores(spin_cpu);
+    }
+}
+
+unsafe fn wait_cores(spin_addr: usize) {
+    loop {
+	let mut value: usize;
+	asm!("mov x1, $1
+              ldr x0, [x1]
+              mov $0, x0"
+	     : "=r"(value)
+	     : "r"(spin_addr)
+	     : "x0", "x1"
+	     : "volatile");
+
+	pi::timer::spin_sleep(Duration::from_secs(1));
+	kprintln!("value = {}", value);
+	if value == 0 {
+	    break
+	}
+    }
 }
