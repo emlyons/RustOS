@@ -70,6 +70,7 @@ unsafe fn kmain() -> ! {
         &__bss_beg as *const _ as u64, &__bss_end as *const _ as u64
     );
     
+    
     spin_sleep(Duration::from_secs(1));
     
     // ATAG report
@@ -79,11 +80,11 @@ unsafe fn kmain() -> ! {
     unsafe {
 	kprint!("initializing memory allocator... ");
 	ALLOCATOR.initialize();
-	kprintln!("ready");
+	kprintln!("done");
 
 	kprint!("initializing file system... ");
         FILESYSTEM.initialize();
-	kprintln!("ready");
+	kprintln!("done");
 
 	//kprint!("initializing irq handler... ");
 	//GLOBAL_IRQ.initialize();
@@ -91,14 +92,19 @@ unsafe fn kmain() -> ! {
 
 	kprint!("initializing virtual memory manager... ");
 	VMM.initialize();
-	kprintln!("ready");
+	kprintln!("done");
 
 	kprint!("initializing scheduler... ");
 	SCHEDULER.initialize();
-	kprintln!("ready\n\n");
+	kprintln!("done");
 
+	kprint!("launching multi-core... ");
 	init::initialize_app_cores();
+	kprintln!("done");
+	
+	kprint!("enabling virtual memory... ");
 	VMM.setup();
+	kprintln!("done\n\n");
 
 	kprintln!("
    .~~.   .~~.
@@ -121,6 +127,19 @@ Welcome to rustOS on Raspberry Pi!
 	shell::shell(">");
     }
 }
+/*
+unsafe fn kmain() -> ! {
+    ALLOCATOR.initialize();
+    FILESYSTEM.initialize();
+    VMM.initialize();
+    SCHEDULER.initialize();
+
+    init::initialize_app_cores();
+    VMM.setup();
+
+    SCHEDULER.start();
+}
+*/
 
 // TODO: TEMP
 pub extern "C" fn temp_shell() {
