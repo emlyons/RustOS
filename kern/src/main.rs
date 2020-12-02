@@ -78,33 +78,33 @@ unsafe fn kmain() -> ! {
     //atag.for_each(|x| kprintln!("{:#?}\n\n", x));
 
     unsafe {
-	kprint!("initializing memory allocator... ");
+	//kprint!("initializing memory allocator... ");
 	ALLOCATOR.initialize();
-	kprintln!("done");
+	//kprintln!("done");
 
-	kprint!("initializing file system... ");
+	//kprint!("initializing file system... ");
         FILESYSTEM.initialize();
-	kprintln!("done");
+	//kprintln!("done");
 
 	//kprint!("initializing irq handler... ");
 	//GLOBAL_IRQ.initialize();
 	//kprintln!("ready");
 
-	kprint!("initializing virtual memory manager... ");
+	//kprint!("initializing virtual memory manager... ");
 	VMM.initialize();
-	kprintln!("done");
+	//kprintln!("done");
 
-	kprint!("initializing scheduler... ");
+	//kprint!("initializing scheduler... ");
 	SCHEDULER.initialize();
-	kprintln!("done");
+	//kprintln!("done");
 
-	kprint!("launching multi-core... ");
+	//kprint!("launching multi-core... ");
 	init::initialize_app_cores();
-	kprintln!("done");
+	//kprintln!("done");
 	
-	kprint!("enabling virtual memory... ");
-	VMM.setup();
-	kprintln!("done\n\n");
+	//kprint!("enabling virtual memory... ");
+	VMM.wait();
+	//kprintln!("done\n\n");
 
 	kprintln!("
    .~~.   .~~.
