@@ -127,19 +127,6 @@ Welcome to rustOS on Raspberry Pi!
 	shell::shell(">");
     }
 }
-/*
-unsafe fn kmain() -> ! {
-    ALLOCATOR.initialize();
-    FILESYSTEM.initialize();
-    VMM.initialize();
-    SCHEDULER.initialize();
-
-    init::initialize_app_cores();
-    VMM.setup();
-
-    SCHEDULER.start();
-}
-*/
 
 // TODO: TEMP
 pub extern "C" fn temp_shell() {

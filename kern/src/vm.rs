@@ -6,11 +6,12 @@ pub use self::pagetable::*;
 
 use aarch64::*;
 use core::sync::atomic::{AtomicUsize, Ordering};
+use core::time::Duration;
+use pi::timer::spin_sleep;
 
 use crate::mutex::Mutex;
 use crate::param::{KERNEL_MASK_BITS, USER_MASK_BITS};
 use crate::percore::{is_mmu_ready, set_mmu_ready};
-
 use crate::console::{kprint, kprintln, CONSOLE};
 
 pub struct VMManager {
@@ -111,7 +112,11 @@ impl VMManager {
         info!("MMU is ready for core-{}/@sp={:016x}", affinity(), SP.get());
 
         // Lab 5 1.B
-        unimplemented!("wait for other cores")
+	self.ready_core_cnt.fetch_add(1, Ordering::Relaxed);
+	while self.ready_core_cnt.load(Ordering::Relaxed) < pi::common::NCORES {
+	    spin_sleep(Duration::from_millis(10));
+	}
+	kprintln!("done");
     }
 
     /// Returns the base address of the kernel page table as `PhysicalAddr`.

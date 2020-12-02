@@ -3,6 +3,8 @@ use core::fmt;
 use core::ops::{Deref, DerefMut, Drop};
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
+use crate::percore::*;
+
 #[repr(align(32))]
 pub struct Mutex<T> {
     data: UnsafeCell<T>,
@@ -34,6 +36,69 @@ impl<T> Mutex<T> {
     // Once MMU/cache is enabled, do the right thing here. For now, we don't
     // need any real synchronization.
     pub fn try_lock(&self) -> Option<MutexGuard<T>> {
+	match is_mmu_ready() {
+	    true => self.mmu_try_lock(),
+	    false => self.non_try_lock(),
+	}
+    }
+
+    // Once MMU/cache is enabled, do the right thing here. For now, we don't
+    // need any real synchronization.
+    #[inline(never)]
+    pub fn lock(&self) -> MutexGuard<T> {
+        // Wait until we can "aquire" the lock, then "acquire" it.
+        loop {
+            match self.try_lock() {
+                Some(guard) => return guard,
+                None => continue,
+            }
+        }
+    }
+
+    fn unlock(&self) {
+        self.lock.store(false, Ordering::Relaxed);
+	//let this = self.owner.load(Ordering::Relaxed);
+	//putcpu(this);
+    }
+
+    fn mmu_try_lock(&self) -> Option<MutexGuard<T>> {
+	let this = getcpu();
+	
+	if !self.lock.load(Ordering::Acquire) {
+	    self.owner.store(this, Ordering::Relaxed);
+	    self.lock.store(true, Ordering::Release);
+	    Some(MutexGuard { lock: &self })
+		
+	} else if self.owner.load(Ordering::Relaxed) == this {
+	    //panic!("reentrance occurred");
+	    self.lock.store(true, Ordering::Release);
+	    Some(MutexGuard { lock: &self })
+		
+	} else {
+	    putcpu(this);
+	    None
+	}
+    }
+
+    fn non_try_lock(&self) -> Option<MutexGuard<T>> {
+	let this = aarch64::affinity();
+	assert_eq!(this, 0);
+	
+        if !self.lock.load(Ordering::Relaxed) {
+            self.lock.store(true, Ordering::Relaxed);
+            self.owner.store(this, Ordering::Relaxed);
+            Some(MutexGuard { lock: &self })
+	} else {
+	    putcpu(this);
+            None
+        }
+    }
+}
+/*
+impl<T> Mutex<T> {
+    // Once MMU/cache is enabled, do the right thing here. For now, we don't
+    // need any real synchronization.
+    pub fn try_lock(&self) -> Option<MutexGuard<T>> {
         let this = 0;
         if !self.lock.load(Ordering::Relaxed) || self.owner.load(Ordering::Relaxed) == this {
             self.lock.store(true, Ordering::Relaxed);
@@ -61,7 +126,7 @@ impl<T> Mutex<T> {
         self.lock.store(false, Ordering::Relaxed);
     }
 }
-
+ */ 
 impl<'a, T: 'a> Deref for MutexGuard<'a, T> {
     type Target = T;
 

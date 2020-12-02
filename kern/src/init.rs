@@ -11,8 +11,6 @@ use crate::kmain;
 use crate::param::*;
 use crate::VMM;
 
-use crate::console::{kprint, kprintln, CONSOLE};
-
 use core::time::Duration;
 
 global_asm!(include_str!("init/vectors.s"));
@@ -138,6 +136,7 @@ unsafe fn kmain2() -> ! {
     let core_idx = MPIDR_EL1.get_value(MPIDR_EL1::Aff0) as usize;
     let spin_addr = (SPINNING_BASE as usize + 8 * core_idx) as *mut usize;
     core::ptr::write(spin_addr, 0);
+    VMM.wait();
 
     let gpio_idx = match core_idx {
 	1 => 6,

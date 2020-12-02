@@ -1,4 +1,4 @@
-use core::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::param::NCORES;
 use crate::traps::irq::LocalIrq;
@@ -7,7 +7,7 @@ use crate::traps::irq::LocalIrq;
 #[repr(align(512))]
 pub struct PerCore {
     /// Number of locks held by this core
-    preemption: AtomicI64,
+    preemption: AtomicUsize,
     /// Is MMU initialized for this core?
     mmu_ready: AtomicBool,
     /// Local IRQ handler registry
@@ -16,29 +16,29 @@ pub struct PerCore {
 
 static PER_CORE_DATA: [PerCore; NCORES] = [
     PerCore {
-        preemption: AtomicI64::new(0),
+        preemption: AtomicUsize::new(0),
         mmu_ready: AtomicBool::new(false),
         irq: LocalIrq::new(),
     },
     PerCore {
-        preemption: AtomicI64::new(0),
+        preemption: AtomicUsize::new(0),
         mmu_ready: AtomicBool::new(false),
         irq: LocalIrq::new(),
     },
     PerCore {
-        preemption: AtomicI64::new(0),
+        preemption: AtomicUsize::new(0),
         mmu_ready: AtomicBool::new(false),
         irq: LocalIrq::new(),
     },
     PerCore {
-        preemption: AtomicI64::new(0),
+        preemption: AtomicUsize::new(0),
         mmu_ready: AtomicBool::new(false),
         irq: LocalIrq::new(),
     },
 ];
 
 /// Returns the current preemption counter of this core.
-pub fn get_preemptive_counter() -> i64 {
+pub fn get_preemptive_counter() -> usize {
     let cpu = aarch64::affinity();
     PER_CORE_DATA[cpu].preemption.load(Ordering::Relaxed)
 }
