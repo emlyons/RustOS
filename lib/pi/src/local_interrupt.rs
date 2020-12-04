@@ -1,7 +1,7 @@
 use core::time::Duration;
 
 use volatile::prelude::*;
-use volatile::Volatile;
+use volatile::{Volatile, ReadVolatile, WriteVolatile, Reserved};
 
 const INT_BASE: usize = 0x40000000;
 
@@ -9,7 +9,18 @@ const INT_BASE: usize = 0x40000000;
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum LocalInterrupt {
     // Lab 5 1.C
-    // FIXME: please fill in the definition
+    CNTPSIRQ,
+    CNTPNSIRQ,
+    CNTHPIRQ,
+    CNTVIRQ,
+    MAILBOX_0,
+    MAILBOX_1,
+    MAILBOX_2,
+    MAILBOX_3,
+    GPU,
+    PMU,
+    AXI,
+    LOCAL_TIMER,
 }
 
 impl LocalInterrupt {
@@ -22,8 +33,22 @@ impl LocalInterrupt {
 
 impl From<usize> for LocalInterrupt {
     fn from(irq: usize) -> LocalInterrupt {
-        // Lab 5 1.C
-        unimplemented!("LocalInterrupt")
+	use LocalInterrupt::*;
+        match irq {
+            0 => CNTPSIRQ,
+	    1 => CNTPNSIRQ,
+	    2 => CNTHPIRQ,
+	    3 => CNTVIRQ,
+	    4 => MAILBOX_0,
+	    5 => MAILBOX_1,
+	    6 => MAILBOX_2,
+	    7 => MAILBOX_3,
+	    8 => GPU,
+	    9 => PMU,
+	    10 => AXI,
+	    11 => LOCAL_TIMER,
+	    _ => panic!("Unknown irq: {}", irq),
+        }
     }
 }
 
@@ -32,7 +57,38 @@ impl From<usize> for LocalInterrupt {
 #[allow(non_snake_case)]
 struct Registers {
     // Lab 5 1.C
-    // FIXME: please fill in the definition
+    CONTROL_REGISTER: Volatile<u32>,
+    __r0: Reserved<u32>,
+    CORE_TIMER_PRESCALER: Volatile<u32>,
+    GPU_INTERRUPTS_ROUTING: Volatile<u32>,
+    INTERRUPTS_ROUTING_SET: WriteVolatile<u32>,
+    INTERRUPTS_ROUTING_CLEAR: WriteVolatile<u32>,
+    __r1: Reserved<u32>,
+    CORE_TIMER_ACCESS_LS: ReadVolatile<u32>,
+    CORE_TIMER_ACCESS_MS: ReadVolatile<u32>,
+    LOCAL_INTERRUPTS_1_7_ROUTING: Volatile<u32>,
+    LOCAL_INTERRUPTS_8_15_ROUTING: Volatile<u32>,
+    AXI_OUTSTANDING_COUNTERS: ReadVolatile<u32>,
+    AXI_OUTSTANDING_IRQ: ReadVolatile<u32>,
+    LOCAL_TIMER_CONTROL_AND_STATUS: Volatile<u32>,
+    LOCAL_TIMER_WRITE_FLAGS: Volatile<u32>,
+    __r2: Reserved<u32>,
+    CORE_0_TIMERS_INTERRUPT_CONTROL: Volatile<u32>,
+    CORE_1_TIMERS_INTERRUPT_CONTROL: Volatile<u32>,
+    CORE_2_TIMERS_INTERRUPT_CONTROL: Volatile<u32>,
+    CORE_3_TIMERS_INTERRUPT_CONTROL: Volatile<u32>,
+    CORE_0_MAILBOXES_INTERRUPT_CONTROL: Volatile<u32>,
+    CORE_1_MAILBOXES_INTERRUPT_CONTROL: Volatile<u32>,
+    CORE_2_MAILBOXES_INTERRUPT_CONTROL: Volatile<u32>,
+    CORE_3_MAILBOXES_INTERRUPT_CONTROL: Volatile<u32>,
+    CORE_0_IRQ_SOURCE: ReadVolatile<u32>,
+    CORE_1_IRQ_SOURCE: ReadVolatile<u32>,
+    CORE_2_IRQ_SOURCE: ReadVolatile<u32>,
+    CORE_3_IRQ_SOURCE: ReadVolatile<u32>,
+    CORE_0_FIQ_SOURCE: ReadVolatile<u32>,
+    CORE_1_FIQ_SOURCE: ReadVolatile<u32>,
+    CORE_2_FIQ_SOURCE: ReadVolatile<u32>,
+    CORE_3_FIQ_SOURCE: ReadVolatile<u32>,
 }
 
 pub struct LocalController {
