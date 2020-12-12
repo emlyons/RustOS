@@ -9,6 +9,8 @@ lib/**/Cargo.lock
 boot/Cargo.lock
 lib/ttywrite/input
 lib/ttywrite/output
+devlaunch
+gdblaunch
 *~
 
 ext/fat32-imgs/*.fat32.img

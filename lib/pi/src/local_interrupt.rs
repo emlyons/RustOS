@@ -3,12 +3,13 @@ use core::time::Duration;
 use volatile::prelude::*;
 use volatile::{Volatile, ReadVolatile, WriteVolatile, Reserved};
 
+use aarch64::*;
+
 const INT_BASE: usize = 0x40000000;
 
 /// Core interrupt sources (QA7: 4.10)
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum LocalInterrupt {
-    // Lab 5 1.C
     CNTPSIRQ,
     CNTPNSIRQ,
     CNTHPIRQ,
@@ -107,18 +108,58 @@ impl LocalController {
 
     pub fn enable_local_timer(&mut self) {
         // Lab 5 1.C
-        unimplemented!("LocalInterrupt")
+
+	// enable timer
+	unsafe {
+	    CNTP_CTL_EL0.set(CNTP_CTL_EL0::ENABLE)
+	};
+	
+	// enable timer interrupt
+	match self.core {
+	    0 => self.registers.CORE_0_TIMERS_INTERRUPT_CONTROL.write(0b10),
+	    1 => self.registers.CORE_1_TIMERS_INTERRUPT_CONTROL.write(0b10),
+	    2 => self.registers.CORE_2_TIMERS_INTERRUPT_CONTROL.write(0b10),
+	    3 => self.registers.CORE_3_TIMERS_INTERRUPT_CONTROL.write(0b10),
+	    _ => unreachable!(),
+	}
     }
 
     pub fn is_pending(&self, int: LocalInterrupt) -> bool {
         // Lab 5 1.C
-        unimplemented!("LocalInterrupt")
+
+	// Read corresponding bits from Core X interrupt source register (QA7: 4.10) and convert it to a boolean value.
+	let pending: u32 = match self.core {
+	    0 => self.registers.CORE_0_IRQ_SOURCE.read(),
+	    1 => self.registers.CORE_1_IRQ_SOURCE.read(),
+	    2 => self.registers.CORE_2_IRQ_SOURCE.read(),
+	    3 => self.registers.CORE_3_IRQ_SOURCE.read(),
+	    _ => unreachable!(),
+	};
+
+	// check for CNTPNSIRQ
+	if pending == 1 {
+	    true
+	} else {
+	    false
+	}
     }
 
     pub fn tick_in(&mut self, t: Duration) {
         // Lab 5 1.C
-        // See timer: 3.1 to 3.3
-        unimplemented!("LocalInterrupt")
+	let clock_freq: u64 = unsafe {
+	    CNTFRQ_EL0.get()
+	};
+
+	// convert to to number of ticks
+	let tick_number = match t.checked_mul(clock_freq as u32) {
+	    Some(d) => d.as_secs(),
+	    None => 0,
+	};
+
+	// set trigger time
+	unsafe {
+	    CNTP_TVAL_EL0.set(tick_number);
+	}
     }
 }
 
